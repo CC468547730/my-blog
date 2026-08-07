@@ -1,0 +1,172 @@
+{% extends "blog/dashboard/base.html" %}
+{% load static form_tags %}
+
+{% block title %}编辑用户 · {{ target.username }}{% endblock %}
+
+{% block page_breadcrumb %}
+<a href="{% url 'blog:dashboard_home' %}">首页</a>
+<span class="sep">/</span>
+<a href="{% url 'blog:dashboard_user_list' %}">用户管理</a>
+<span class="sep">/</span>
+<span class="current">{{ target.username }}</span>
+{% endblock %}
+
+{% block page_title %}编辑用户{% endblock %}
+{% block page_subtitle %}修改 {{ target.username }} 的资料、权限与密码{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0" style="max-width: 880px;">
+
+  <!-- 身份卡片 -->
+  <div class="dash-card p-4 mb-4 d-flex align-items-center gap-3 flex-wrap">
+    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+         style="width:64px;height:64px;font-size:26px;background:linear-gradient(135deg,#6366f1,#8b5cf6);position:relative;">
+      {{ target.username|first|upper }}
+      {% if target.is_superuser %}<span class="position-absolute bottom-0 end-0 bg-danger rounded-circle d-flex align-items-center justify-content-center text-white" style="width:22px;height:22px;font-size:11px;border:2px solid #fff;">S</span>
+      {% elif target.is_staff %}<span class="position-absolute bottom-0 end-0 bg-success rounded-circle d-flex align-items-center justify-content-center text-white" style="width:22px;height:22px;font-size:11px;border:2px solid #fff;">A</span>
+      {% else %}<span class="position-absolute bottom-0 end-0 bg-secondary rounded-circle d-flex align-items-center justify-content-center text-white" style="width:22px;height:22px;font-size:11px;border:2px solid #fff;">U</span>{% endif %}
+    </div>
+    <div class="flex-grow-1">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <h5 class="mb-0 fw-bold">{{ target.username }}</h5>
+        {% if target.is_superuser %}<span class="badge bg-danger-subtle text-danger">超级管理员</span>
+        {% elif target.is_staff %}<span class="badge bg-success-subtle text-success">工作人员</span>
+        {% else %}<span class="badge bg-secondary-subtle text-secondary">普通用户</span>{% endif %}
+        {% if not target.is_active %}<span class="badge bg-light text-danger">已禁用</span>{% endif %}
+      </div>
+      <div class="text-muted small mt-1">{{ target.email|default:"（未填写邮箱）" }}</div>
+      <div class="text-muted small mt-1">
+        <i class="bi bi-file-earmark-text"></i> 文章 {{ target.articles.count }}
+        <span class="mx-2">·</span><i class="bi bi-calendar-plus"></i> 注册于 {{ target.date_joined|date:"Y-m-d" }}
+        <span class="mx-2">·</span><i class="bi bi-box-arrow-in-right"></i> 最近登录 {% if target.last_login %}{{ target.last_login|date:"Y-m-d H:i" }}{% else %}从未{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑表单 -->
+  <div class="dash-card">
+    <div class="card-body p-4 p-md-5">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <h6 class="fw-bold mb-3 text-uppercase text-muted" style="font-size:12px;letter-spacing:.05em;">基本资料</h6>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-medium">用户名</label>
+            {{ form.username|add_class:"form-control" }}
+            {% for e in form.username.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-medium">邮箱</label>
+            {{ form.email|add_class:"form-control" }}
+            {% for e in form.email.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-medium">姓</label>
+            {{ form.first_name|add_class:"form-control" }}
+            {% for e in form.first_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-medium">名</label>
+            {{ form.last_name|add_class:"form-control" }}
+            {% for e in form.last_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+
+        <h6 class="fw-bold mb-3 mt-4 text-uppercase text-muted" style="font-size:12px;letter-spacing:.05em;">权限设置</h6>
+        <div class="form-check form-switch mb-2 ps-0">
+          <div class="d-flex justify-content-between align-items-center border-bottom pb-2">
+            <div>
+              <label class="form-check-label fw-medium mb-0" for="{{ form.is_active.id_for_label }}">账户启用</label>
+              <div class="text-muted small">停用后该账户将无法登录。</div>
+            </div>
+            <div>{{ form.is_active }}</div>
+          </div>
+        </div>
+        <div class="form-check form-switch mb-2 ps-0">
+          <div class="d-flex justify-content-between align-items-center border-bottom pb-2">
+            <div>
+              <label class="form-check-label fw-medium mb-0" for="{{ form.is_staff.id_for_label }}">后台访问（staff）</label>
+              <div class="text-muted small">允许访问后台管理界面。</div>
+            </div>
+            <div>{{ form.is_staff }}</div>
+          </div>
+        </div>
+        <div class="form-check form-switch mb-2 ps-0">
+          <div class="d-flex justify-content-between align-items-center pb-1">
+            <div>
+              <label class="form-check-label fw-medium mb-0" for="{{ form.is_superuser.id_for_label }}">超级管理员</label>
+              <div class="text-muted small">拥有全部权限，请谨慎授予。</div>
+            </div>
+            <div>{{ form.is_superuser }}</div>
+          </div>
+        </div>
+        {% for e in form.is_superuser.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+
+        <h6 class="fw-bold mb-3 mt-4 text-uppercase text-muted" style="font-size:12px;letter-spacing:.05em;">重置密码（可选）</h6>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-medium">新密码</label>
+            {{ form.new_password1|add_class:"form-control" }}
+            {% for e in form.new_password1.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+            <div class="text-muted small mt-1">留空则不修改密码。</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-medium">确认新密码</label>
+            {{ form.new_password2|add_class:"form-control" }}
+            {% for e in form.new_password2.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4 justify-content-end">
+          <a href="{% url 'blog:dashboard_user_list' %}" class="btn btn-outline-secondary rounded-pill px-4">取消</a>
+          <button type="submit" class="btn btn-primary rounded-pill px-4">保存更改</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 删除入口 -->
+  <div class="dash-card mt-4">
+    <div class="card-body p-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div>
+        <div class="fw-semibold">删除该用户</div>
+        <div class="text-muted small">删除后该用户及其 {{ target.articles.count }} 篇文章将被永久移除，不可恢复。</div>
+      </div>
+      {% if can_delete %}
+        <button type="button" class="btn btn-outline-danger rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#deleteModal">删除用户</button>
+      {% else %}
+        <button type="button" class="btn btn-outline-danger rounded-pill px-4" disabled title="不能删除自己或唯一超级管理员">删除用户</button>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- 删除确认弹层 -->
+{% if can_delete %}
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">删除用户 {{ target.username }}？</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body">
+        此操作不可撤销。该用户及其 {{ target.articles.count }} 篇文章将被一并删除。
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">取消</button>
+        <form method="post" action="{% url 'blog:dashboard_user_delete' target.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger rounded-pill px-4">确认删除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

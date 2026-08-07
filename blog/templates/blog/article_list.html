@@ -1,0 +1,69 @@
+{% extends "blog/base.html" %}
+{% load static %}
+
+{% block title %}文章列表 - 我的博客{% endblock %}
+
+{% block content %}
+    {% if category %}
+        <div class="post-card" style="padding:18px 24px;">
+            <h4 class="mb-0" style="font-weight:700;">分类：<span style="color:var(--cnb-primary);">{{ category.name }}</span></h4>
+        </div>
+    {% elif tag %}
+        <div class="post-card" style="padding:18px 24px;">
+            <h4 class="mb-0" style="font-weight:700;">标签：<span style="color:var(--cnb-primary);">{{ tag.name }}</span></h4>
+        </div>
+    {% endif %}
+
+    {% if articles %}
+        {% for article in articles %}
+            <article class="post-card">
+                <h2 class="post-title">
+                    <a href="{% url 'blog:article_detail' article.pk %}">{{ article.title }}</a>
+                </h2>
+                <div class="post-meta">
+                    <span class="meta-item"><i class="bi bi-calendar3"></i> {{ article.created_at|date:"Y-m-d H:i" }}</span>
+                    {% if article.author %}<span class="meta-item"><i class="bi bi-person"></i> {{ article.author }}</span>{% endif %}
+                    {% if article.category %}
+                        <span class="meta-item"><i class="bi bi-folder2"></i>
+                        <a href="{% url 'blog:category_detail' article.category.pk %}">{{ article.category.name }}</a></span>
+                    {% endif %}
+                </div>
+                <div class="post-summary">
+                    {{ article.summary_html|safe }}
+                </div>
+                <div class="post-footer">
+                    <span class="post-tags">
+                        <i class="bi bi-tags" style="color:var(--cnb-muted);"></i>
+                        {% for t in article.tags.all %}
+                            <a href="{% url 'blog:tag_detail' t.pk %}" class="chip">{{ t.name }}</a>
+                        {% empty %}
+                            <span class="text-muted">无标签</span>
+                        {% endfor %}
+                    </span>
+                    <a href="{% url 'blog:article_detail' article.pk %}" class="read-more">阅读全文 »</a>
+                </div>
+            </article>
+        {% endfor %}
+    {% else %}
+        <div class="post-card text-muted">暂无文章。</div>
+    {% endif %}
+
+    <!-- 分页 -->
+    {% if is_paginated %}
+        <nav class="pager">
+            {% if page_obj.has_previous %}
+                <a href="?page=1">首页</a>
+                <a href="?page={{ page_obj.previous_page_number }}">上一页</a>
+            {% else %}
+                <span>首页</span><span>上一页</span>
+            {% endif %}
+            <span class="current">第 {{ page_obj.number }} / {{ paginator.num_pages }} 页</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">下一页</a>
+                <a href="?page={{ paginator.num_pages }}">末页</a>
+            {% else %}
+                <span>下一页</span><span>末页</span>
+            {% endif %}
+        </nav>
+    {% endif %}
+{% endblock %}

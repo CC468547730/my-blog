@@ -1,0 +1,56 @@
+{% extends "blog/base.html" %}
+{% load static %}
+
+{% block title %}登录 - 我的博客{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 60vh;">
+    <div class="col-md-5 col-lg-4">
+        <div class="card border-0 shadow-lg rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10 text-primary mb-3"
+                         style="width: 64px; height: 64px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16">
+                            <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                            <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                        </svg>
+                    </div>
+                    <h2 class="h4 fw-bold">欢迎回来</h2>
+                    <p class="text-muted small mb-0">登录你的博客账户</p>
+                </div>
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_username" class="form-label fw-medium small text-secondary">用户名</label>
+                        <input type="text" name="username" id="id_username" class="form-control form-control-lg"
+                               value="{{ form.username.value|default:'' }}" autofocus>
+                        {% for error in form.username.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_password" class="form-label fw-medium small text-secondary">密码</label>
+                        <input type="password" name="password" id="id_password" class="form-control form-control-lg">
+                        {% for error in form.password.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% for error in form.non_field_errors %}
+                        <div class="alert alert-danger py-2 small">{{ error }}</div>
+                    {% endfor %}
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">登录</button>
+                    </div>
+                    <input type="hidden" name="next" value="{{ next }}">
+                </form>
+
+                <p class="text-center text-muted small mt-4 mb-0">
+                    还没有账户？<a href="{% url 'users:register' %}" class="text-decoration-none">立即注册</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

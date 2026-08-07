@@ -1,0 +1,99 @@
+{% load static %}
+
+<!-- 公告卡片 -->
+<div class="side-card">
+    <div class="section-title"><i class="bi bi-megaphone"></i>公告</div>
+    <p class="notice-text">欢迎来到我的博客，这里记录技术学习与思考。如有疑问欢迎留言交流。</p>
+</div>
+
+<!-- 作者介绍卡片 -->
+<div class="side-card author-card">
+    <div class="section-title"><i class="bi bi-person-badge"></i>关于作者</div>
+    {% if sidebar_author %}
+        <div class="author-avatar">{{ sidebar_author.username|first|upper }}</div>
+        <div class="author-name">{{ sidebar_author.username }}</div>
+        <div class="author-bio">已发表 {{ sidebar_author_count }} 篇文章<br>热爱技术，持续分享</div>
+    {% else %}
+        <div class="author-bio">暂无作者信息</div>
+    {% endif %}
+</div>
+
+<!-- 分类 -->
+<div class="side-card">
+    <div class="section-title"><i class="bi bi-folder2"></i>分类</div>
+    <ul class="side-list">
+        {% for c in sidebar_categories %}
+            <li>
+                <a href="{% url 'blog:category_detail' c.pk %}">{{ c.name }}</a>
+                <span class="side-count">{{ c.num_articles }}</span>
+            </li>
+        {% empty %}
+            <li class="side-empty">暂无分类</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<!-- 热门文章 -->
+<div class="side-card">
+    <div class="section-title"><i class="bi bi-fire"></i>热门文章</div>
+    <ul class="side-list">
+        {% for a in sidebar_popular %}
+            <li>
+                <a href="{% url 'blog:article_detail' a.pk %}">{{ a.title }}</a>
+            </li>
+        {% empty %}
+            <li class="side-empty">暂无文章</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<!-- 标签云 -->
+<div class="side-card">
+    <div class="section-title"><i class="bi bi-tags"></i>标签</div>
+    <div class="tag-cloud">
+        {% for t in sidebar_tags %}
+            <a href="{% url 'blog:tag_detail' t.pk %}" class="chip">{{ t.name }}</a>
+        {% empty %}
+            <span class="side-empty">暂无标签</span>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 日历组件 -->
+<div class="side-card">
+    <div class="section-title"><i class="bi bi-calendar3"></i>日历</div>
+    <table class="mini-cal">
+        <thead>
+            <tr>
+                <th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th>日</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for week in cal_weeks %}
+                <tr>
+                    {% for d in week %}
+                        {% if d == cal_today %}
+                            <td class="cal-today">{{ d }}</td>
+                        {% elif d == '' %}
+                            <td class="cal-empty">·</td>
+                        {% else %}
+                            <td>{{ d }}</td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="text-center text-muted" style="font-size:12px;margin-top:8px;">{{ cal_month_name }}</div>
+</div>
+
+<!-- 订阅模块 -->
+<div class="side-card">
+    <div class="section-title"><i class="bi bi-envelope-paper"></i>订阅</div>
+    <p class="notice-text" style="margin-bottom:10px;">订阅以获取最新文章更新</p>
+    <form class="subscribe-form" onsubmit="return false;">
+        <input type="email" placeholder="输入邮箱地址" aria-label="邮箱">
+        <button type="submit">订阅</button>
+    </form>
+    <div class="subscribe-note">我们尊重您的隐私，绝不发送垃圾邮件。</div>
+</div>

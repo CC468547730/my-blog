@@ -1,0 +1,141 @@
+{% extends "blog/dashboard/base.html" %}
+{% load static %}
+{% block title %}仪表盘{% endblock %}
+{% block page_title %}仪表盘{% endblock %}
+{% block page_subtitle %}欢迎回来，{{ user.username }}！{% endblock %}
+{% block active %}home{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="stat-number">{{ total_articles }}</div>
+                    <div class="stat-label">{% if is_manager %}文章总数{% else %}我的文章{% endif %}</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(79,70,229,.12);color:#4f46e5;">
+                    <i class="bi bi-file-earmark-text"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if is_manager %}
+    <div class="col-md-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="stat-number">{{ total_categories }}</div>
+                    <div class="stat-label">分类总数</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">
+                    <i class="bi bi-folder"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="stat-number">{{ total_tags }}</div>
+                    <div class="stat-label">标签总数</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(14,165,233,.12);color:#0ea5e9;">
+                    <i class="bi bi-tags"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="stat-number">{{ total_users }}</div>
+                    <div class="stat-label">用户总数</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">
+                    <i class="bi bi-people"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    {# 评论概览卡片：点击跳转后台评论审核列表；有待审核时数字变红并显示角标提醒 #}
+    <div class="col-md-6 col-lg-3">
+        <a href="{% url 'blog:dashboard_comment_list' %}" class="text-decoration-none">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="stat-number {% if pending_comments > 0 %}text-danger{% endif %}">{{ total_comments }}</div>
+                        <div class="stat-label">评论总数（待审 {{ pending_comments }}）</div>
+                    </div>
+                    <div class="stat-icon position-relative" style="background:rgba(239,68,68,.12);color:#ef4444;">
+                        <i class="bi bi-chat-square-text"></i>
+                        {% if pending_comments > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ pending_comments }}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="dash-card">
+            <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
+                <h5 class="fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>{% if is_manager %}最近发布的文章{% else %}我最近发布的文章{% endif %}</h5>
+            </div>
+            <div class="card-body p-4">
+                {% if recent_articles %}
+                    <div class="list-group list-group-flush">
+                        {% for article in recent_articles %}
+                            <a href="{% url 'blog:article_detail' article.pk %}" class="list-group-item list-group-item-action px-0 py-3 d-flex justify-content-between align-items-center border-0">
+                                <span class="fw-medium">{{ article.title }}</span>
+                                <span class="text-muted small">{{ article.created_at|date:"Y-m-d H:i" }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="dash-empty">
+                        <i class="bi bi-inbox"></i>
+                        <p class="mt-2 mb-0">{% if is_manager %}暂无文章{% else %}你还没有发布文章，去写一篇吧～{% endif %}</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card border-0 rounded-4 text-white h-100"
+             style="background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 10px 30px rgba(79,70,229,.25);">
+            <div class="card-body p-4 d-flex flex-column">
+                <h5 class="fw-bold"><i class="bi bi-lightning-charge me-2"></i>快捷操作</h5>
+                <p class="small opacity-75">{% if is_manager %}开始创作新内容或管理分类标签。{% else %}开始创作你自己的内容。{% endif %}</p>
+                <div class="d-grid gap-2 mt-auto">
+                    <a href="{% url 'blog:dashboard_article_create' %}" class="btn btn-light btn-sm fw-semibold">
+                        <i class="bi bi-plus-lg me-1"></i>新建文章
+                    </a>
+                    <a href="{% url 'blog:dashboard_article_list' %}" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-file-earmark-text me-1"></i>我的文章
+                    </a>
+                    {% if is_manager %}
+                    <a href="{% url 'blog:dashboard_category_list' %}" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-folder me-1"></i>管理分类
+                    </a>
+                    <a href="{% url 'blog:dashboard_tag_list' %}" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-tags me-1"></i>管理标签
+                    </a>
+                    <a href="{% url 'blog:dashboard_comment_list' %}" class="btn btn-outline-light btn-sm {% if pending_comments > 0 %}border-danger text-danger{% endif %}">
+                        <i class="bi bi-chat-square-text me-1"></i>评论审核{% if pending_comments > 0 %}（{{ pending_comments }}）{% endif %}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

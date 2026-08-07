@@ -1,0 +1,181 @@
+{% extends "blog/dashboard/base.html" %}
+{% load static %}
+{% block title %}评论审核{% endblock %}
+{% block page_breadcrumb %}
+<a href="{% url 'blog:dashboard_home' %}">首页</a>
+<span class="sep">/</span>
+<span class="current">评论审核</span>
+{% endblock %}
+{% block page_title %}评论审核{% endblock %}
+{% block page_subtitle %}共 {{ page_obj.paginator.count }} 条评论{% endblock %}
+
+{% block content %}
+{# 状态筛选条：按审核状态过滤评论 #}
+<div class="dash-card mb-4">
+    <div class="card-body p-4">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small text-muted">审核状态</label>
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="">全部状态</option>
+                    {% for code, label in status_choices %}
+                        <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <a href="{% url 'blog:dashboard_comment_list' %}" class="btn btn-outline-secondary w-100">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# 批量操作工具栏：勾选评论后可一次性通过/驳回/删除 #}
+<form method="post" action="{% url 'blog:dashboard_comment_bulk_moderate' %}" id="bulk-form">
+    {% csrf_token %}
+    <input type="hidden" name="status" value="{{ status_filter }}">
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <span class="text-muted small">已选 <strong id="selected-count">0</strong> 条</span>
+        <button type="submit" name="action" value="approve" class="btn btn-sm btn-outline-success rounded-pill px-3">批量通过</button>
+        <button type="submit" name="action" value="reject" class="btn btn-sm btn-outline-warning rounded-pill px-3">批量驳回</button>
+        <button type="submit" name="action" value="delete" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="return confirm('确认删除所选评论？此操作不可恢复');">批量删除</button>
+    </div>
+
+    <div class="table-dash">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">
+                            {# 表头全选框：联动切换所有行勾选状态 #}
+                            <input class="form-check-input" type="checkbox" id="select-all">
+                        </th>
+                        <th class="ps-2">评论内容</th>
+                        <th>文章</th>
+                        <th>评论者</th>
+                        <th>提交时间</th>
+                        <th>状态</th>
+                        <th class="text-end pe-4">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comment in comments %}
+                        <tr>
+                            <td>
+                                <input class="form-check-input row-check" type="checkbox" name="comment_ids" value="{{ comment.pk }}">
+                            </td>
+                            <td class="ps-2" style="max-width: 340px;">
+                                <div class="text-break">{{ comment.content }}</div>
+                                {% if comment.author_email %}
+                                    <div class="small text-muted mt-1">{{ comment.author_email }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'blog:article_detail' comment.article.pk %}" class="text-decoration-none text-dark">{{ comment.article.title|truncatechars:20 }}</a>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">{{ comment.author_name }}</span>
+                                {% if comment.author_email %}
+                                    <div class="small text-muted mt-1">{{ comment.author_email }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">{{ comment.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% if comment.status == 'pending' %}
+                                    <span class="badge bg-warning text-dark">待审核</span>
+                                {% elif comment.status == 'approved' %}
+                                    <span class="badge bg-success">已通过</span>
+                                {% elif comment.status == 'rejected' %}
+                                    <span class="badge bg-danger">已驳回</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                {# 单条操作：仅对未通过/未驳回的评论提供通过、驳回；删除始终可用 #}
+                                {% if comment.status != 'approved' %}
+                                    <form method="post" action="{% url 'blog:dashboard_comment_moderate' %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="comment_id" value="{{ comment.pk }}">
+                                        <input type="hidden" name="action" value="approve">
+                                        <input type="hidden" name="status" value="{{ status_filter }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-success rounded-pill px-3">通过</button>
+                                    </form>
+                                {% endif %}
+                                {% if comment.status != 'rejected' %}
+                                    <form method="post" action="{% url 'blog:dashboard_comment_moderate' %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="comment_id" value="{{ comment.pk }}">
+                                        <input type="hidden" name="action" value="reject">
+                                        <input type="hidden" name="status" value="{{ status_filter }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill px-3">驳回</button>
+                                    </form>
+                                {% endif %}
+                                <form method="post" action="{% url 'blog:dashboard_comment_moderate' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="comment_id" value="{{ comment.pk }}">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="status" value="{{ status_filter }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="return confirm('确认删除该评论？此操作不可恢复');">删除</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7">
+                                <div class="dash-empty">
+                                    <i class="bi bi-chat-square-text"></i>
+                                    <p class="mt-2 mb-0">暂无评论</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+
+{# 分页导航 #}
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">上一页</a>
+            </li>
+        {% endif %}
+        <li class="page-item disabled">
+            <span class="page-link">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+        </li>
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">下一页</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{# 选择计数与全选联动：纯原生 JS，不引入额外依赖 #}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('select-all');
+    var rowChecks = document.querySelectorAll('.row-check');
+    var counter = document.getElementById('selected-count');
+
+    function updateCount() {
+        var n = document.querySelectorAll('.row-check:checked').length;
+        counter.textContent = n;
+        selectAll.checked = n > 0 && n === rowChecks.length;
+    }
+
+    selectAll.addEventListener('change', function () {
+        rowChecks.forEach(function (cb) { cb.checked = selectAll.checked; });
+        updateCount();
+    });
+    rowChecks.forEach(function (cb) {
+        cb.addEventListener('change', updateCount);
+    });
+    updateCount();
+});
+</script>
+{% endblock %}

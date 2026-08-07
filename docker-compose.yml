@@ -1,0 +1,22 @@
+services:
+  web:
+    build: .
+    image: my-blog:latest
+    container_name: my-blog
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: "${SECRET_KEY}"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,linkuphub.top,www.linkuphub.top"
+    volumes:
+      - ./data/db.sqlite3:/app/db.sqlite3
+      - ./data/staticfiles:/app/staticfiles
+      - ./data/media:/app/media
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

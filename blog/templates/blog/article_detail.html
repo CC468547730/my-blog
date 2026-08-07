@@ -1,0 +1,105 @@
+{% extends "blog/base.html" %}
+{% load static %}
+
+{% block title %}{{ article.title }} - 我的博客{% endblock %}
+
+{% block content %}
+    <article class="article-card">
+        <h1 class="article-title">{{ article.title }}</h1>
+        <div class="article-meta">
+            <span class="meta-item"><i class="bi bi-calendar3"></i> {{ article.created_at|date:"Y-m-d H:i" }}</span>
+            {% if article.author %}<span class="meta-item"><i class="bi bi-person"></i> {{ article.author }}</span>{% endif %}
+            {% if article.category %}
+                <span class="meta-item"><i class="bi bi-folder2"></i>
+                <a href="{% url 'blog:category_detail' article.category.pk %}">{{ article.category.name }}</a></span>
+            {% endif %}
+        </div>
+
+        <div class="article-body">
+            {{ article.content_html|safe }}
+        </div>
+
+        {% if article.tags.all %}
+            <div class="article-tags">
+                <i class="bi bi-tags" style="color:var(--cnb-muted);"></i>
+                {% for t in article.tags.all %}
+                    <a href="{% url 'blog:tag_detail' t.pk %}" class="chip">{{ t.name }}</a>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if is_author %}
+        <div class="article-actions mt-3 d-flex gap-2">
+            <a href="{% url 'blog:article_update' article.pk %}" class="btn btn-outline-primary btn-sm rounded-pill">
+                <i class="bi bi-pencil"></i> 编辑
+            </a>
+            <a href="{% url 'blog:article_delete' article.pk %}" class="btn btn-outline-danger btn-sm rounded-pill">
+                <i class="bi bi-trash"></i> 删除
+            </a>
+        </div>
+        {% endif %}
+
+        <a href="{% url 'blog:article_list' %}" class="back-link mt-3 d-inline-block">
+            <i class="bi bi-arrow-left"></i> 返回文章列表
+        </a>
+
+        {# ===================== 评论区（US1/US3） ===================== #}
+        <section class="comments-section mt-5">
+            <h3 class="comments-title">
+                <i class="bi bi-chat-left-text"></i> 评论
+                <span class="badge bg-secondary">{{ approved_comments|length }}</span>
+            </h3>
+
+            {# 已通过评论列表（仅展示 status=approved，内容默认转义防 XSS） #}
+            {% if approved_comments %}
+                <ul class="comment-list list-unstyled">
+                    {% for c in approved_comments %}
+                        <li class="comment-item border-bottom py-3">
+                            <div class="comment-meta">
+                                <strong>{{ c.author_name }}</strong>
+                                <span class="text-muted small ms-2">{{ c.created_at|date:"Y-m-d H:i" }}</span>
+                            </div>
+                            <p class="comment-content mb-0 mt-1">{{ c.content }}</p>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">暂无评论，快来抢沙发吧～</p>
+            {% endif %}
+
+            {# 发表评论表单（FR-001/006，含 CSRF 与校验提示） #}
+            <div class="comment-form-wrap card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">发表评论</h5>
+                    {% if messages %}
+                        {% for msg in messages %}
+                            <div class="alert alert-info py-2">{{ msg }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    <form method="post" action="{% url 'blog:comment_create' article.pk %}">
+                        {% csrf_token %}
+                        {% if not user.is_authenticated %}
+                            <div class="mb-3">
+                                <label class="form-label">昵称 *</label>
+                                <input type="text" name="author_name" class="form-control" maxlength="50" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">邮箱（可选）</label>
+                                <input type="email" name="author_email" class="form-control">
+                            </div>
+                        {% else %}
+                            <p class="text-muted small">您已登录，将以「{{ user.username }}」身份发表评论。</p>
+                        {% endif %}
+                        <div class="mb-3">
+                            <label class="form-label">评论内容 *</label>
+                            <textarea name="content" class="form-control" rows="4" maxlength="1000" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary rounded-pill">
+                            <i class="bi bi-send"></i> 提交评论
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </article>
+{% endblock %}

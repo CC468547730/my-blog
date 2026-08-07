@@ -1,0 +1,25 @@
+[Unit]
+Description=My-Blog Django Gunicorn Service
+After=network.target
+
+[Service]
+# 项目根目录（按实际路径修改）
+WorkingDirectory=/opt/my-blog
+# 实际运行用户（建议非 root，如 www 或你的普通用户）
+User=www
+Group=www
+
+# 环境变量（也可放进 start.sh，这里集中管理一份）
+Environment="DEBUG=False"
+Environment="SECRET_KEY=请换成一段随机长字符串"
+Environment="ALLOWED_HOSTS=localhost,127.0.0.1,你的服务器IP或域名"
+
+# 若用虚拟环境，把下面路径改成 /opt/my-blog/venv/bin/gunicorn
+ExecStart=/opt/my-blog/start.sh
+
+# 异常自动重启
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

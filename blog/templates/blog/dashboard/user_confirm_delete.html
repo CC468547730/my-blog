@@ -1,0 +1,36 @@
+{% extends "blog/dashboard/base.html" %}
+{% block title %}删除用户{% endblock %}
+{% block page_breadcrumb %}
+<a href="{% url 'blog:dashboard_home' %}">首页</a>
+<span class="sep">/</span>
+<a href="{% url 'blog:dashboard_user_list' %}">用户管理</a>
+<span class="sep">/</span>
+<span class="current">删除用户</span>
+{% endblock %}
+{% block page_title %}删除用户{% endblock %}
+{% block page_subtitle %}请确认是否继续删除操作{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="dash-card text-center p-4 p-md-5">
+            <div class="mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-danger bg-opacity-10 text-danger"
+                     style="width: 80px; height: 80px;">
+                    <i class="bi bi-exclamation-triangle fs-1"></i>
+                </div>
+            </div>
+            <h4 class="fw-bold text-danger">确认删除用户？</h4>
+            <p class="text-muted my-3">
+                你确定要删除用户《<strong class="text-dark">{{ target.username }}</strong>》吗？<br>
+                该操作不可恢复。
+            </p>
+            <form method="post" class="d-flex justify-content-center gap-2 mt-4">
+                {% csrf_token %}
+                <a href="{% url 'blog:dashboard_user_list' %}" class="btn btn-outline-secondary rounded-pill px-4">取消</a>
+                <button type="submit" class="btn btn-danger rounded-pill px-4 text-white">确认删除</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

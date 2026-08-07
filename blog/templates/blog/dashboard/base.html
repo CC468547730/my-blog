@@ -1,0 +1,447 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}后台管理{% endblock %} - 我的博客</title>
+    <link rel="icon" type="image/png" href="{% static 'img/logo.png' %}?v=2">
+    <link rel="shortcut icon" type="image/png" href="{% static 'img/logo.png' %}?v=2">
+    <link rel="apple-touch-icon" href="{% static 'img/logo.png' %}?v=2">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{% static 'css/codehilite.css' %}">
+    <style>
+        :root {
+            --sidebar-width: 264px;
+            --dash-primary: #4f46e5;
+            --dash-primary-dark: #4338ca;
+            --dash-sidebar-bg: #0f172a;
+            --dash-sidebar-bg2: #1e1b4b;
+            --dash-card-radius: 16px;
+            --dash-shadow: 0 1px 3px rgba(17,24,39,.05), 0 10px 30px rgba(17,24,39,.06);
+            --dash-shadow-hover: 0 4px 14px rgba(79,70,229,.12), 0 16px 40px rgba(17,24,39,.08);
+        }
+        body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif; }
+
+        /* ===== 侧边栏 ===== */
+        .dashboard-sidebar {
+            width: var(--sidebar-width);
+            min-height: 100vh;
+            position: fixed;
+            top: 0; left: 0;
+            z-index: 1040;
+            background: linear-gradient(180deg, var(--dash-sidebar-bg2) 0%, var(--dash-sidebar-bg) 100%);
+            display: flex;
+            flex-direction: column;
+            padding: 22px 16px;
+            overflow: hidden;
+            transition: width .2s ease;
+        }
+        /* 拖拽分隔条 */
+        .sidebar-resizer {
+            position: fixed;
+            top: 0; left: var(--sidebar-width);
+            width: 6px; height: 100vh;
+            z-index: 1050;
+            cursor: col-resize;
+            background: transparent;
+            transition: left .2s ease, background .15s ease;
+        }
+        .dashboard-sidebar.collapsed ~ .sidebar-resizer { left: 72px; display: none; }
+        .sidebar-resizer::after {
+            content: ""; position: absolute; top: 0; bottom: 0; left: 2px;
+            width: 2px; background: rgba(255,255,255,.12);
+            transition: background .15s ease;
+        }
+        .sidebar-resizer:hover::after,
+        body.sidebar-resizing .sidebar-resizer::after {
+            background: #818cf8;
+        }
+        body.sidebar-resizing { cursor: col-resize; user-select: none; }
+        body.sidebar-resizing .dashboard-sidebar { transition: none; }
+        body.sidebar-resizing .sidebar-resizer { transition: none; }
+
+        /* 折叠态：仅显示图标 */
+        .dashboard-sidebar.collapsed { width: 72px; }
+        .dashboard-sidebar.collapsed .sidebar-brand span:not(.brand-dot),
+        .dashboard-sidebar.collapsed .nav-section-label,
+        .dashboard-sidebar.collapsed .nav-link-dashboard span,
+        .dashboard-sidebar.collapsed .sidebar-footer .user-mini .name,
+        .dashboard-sidebar.collapsed .sidebar-footer .user-mini .role { display: none; }
+        .dashboard-sidebar.collapsed .nav-link-dashboard { justify-content: center; padding-left: 0; padding-right: 0; }
+        .dashboard-sidebar.collapsed .nav-link-dashboard i { width: auto; font-size: 19px; }
+        .dashboard-sidebar.collapsed .user-mini { justify-content: center; padding: 8px 4px; }
+        .dashboard-sidebar.collapsed .sidebar-footer .nav-link-dashboard span { display: none; }
+
+        .sidebar-toggle-btn {
+            border: none; background: rgba(255,255,255,.08); color: #fff;
+            border-radius: 10px; width: 32px; height: 32px;
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: background .15s ease;
+        }
+        .sidebar-toggle-btn:hover { background: rgba(255,255,255,.18); }
+        .sidebar-brand {
+            display: flex; align-items: center; gap: 11px;
+            color: #fff; text-decoration: none; font-weight: 800; font-size: 18px;
+            padding: 6px 10px 18px;
+            letter-spacing: -.02em;
+        }
+        .sidebar-brand .brand-dot {
+            width: 30px; height: 30px; border-radius: 9px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            display: inline-flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 14px rgba(99,102,241,.5);
+        }
+        .sidebar-brand-logo {
+            width: 40px; height: 40px; border-radius: 10px;
+            object-fit: cover;
+            box-shadow: 0 4px 14px rgba(99,102,241,.5), inset 0 1px 1px rgba(255,255,255,.35);
+        }
+        .nav-section-label {
+            color: rgba(255,255,255,.35);
+            font-size: 11px; font-weight: 700; letter-spacing: .1em;
+            text-transform: uppercase;
+            padding: 16px 12px 8px;
+        }
+        .nav-link-dashboard {
+            color: rgba(255,255,255,.68);
+            border-radius: 11px;
+            margin-bottom: .3rem;
+            padding: .7rem .9rem;
+            font-size: 14.5px; font-weight: 500;
+            position: relative;
+            transition: all .18s ease;
+        }
+        .nav-link-dashboard:hover {
+            color: #fff;
+            background-color: rgba(255,255,255,.07);
+        }
+        .nav-link-dashboard.active {
+            color: #fff;
+            background: linear-gradient(90deg, rgba(99,102,241,.28), rgba(99,102,241,.08));
+        }
+        .nav-link-dashboard.active::before {
+            content: ""; position: absolute; left: 0; top: 18%; bottom: 18%;
+            width: 3px; border-radius: 0 3px 3px 0;
+            background: #818cf8;
+        }
+        .nav-link-dashboard i { font-size: 17px; width: 22px; text-align: center; }
+        .nav-link-dashboard.active i { color: #a5b4fc; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            border-top: 1px solid rgba(255,255,255,.08);
+            padding-top: 14px;
+        }
+        .user-mini {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px; border-radius: 12px;
+            background: rgba(255,255,255,.05);
+        }
+        .user-mini .avatar {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 14px;
+        }
+        .user-mini .name { color: #fff; font-size: 13.5px; font-weight: 600; }
+        .user-mini .role { color: rgba(255,255,255,.5); font-size: 11.5px; }
+
+        /* ===== 主区 ===== */
+        .dashboard-main {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            background: #f6f7fb;
+            transition: margin-left .2s ease;
+        }
+        body.sidebar-resizing .dashboard-main { transition: none; }
+        .dashboard-sidebar.collapsed ~ .dashboard-main { margin-left: 72px; }
+        .dash-topbar {
+            background: rgba(255,255,255,.85);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #eceef3;
+            padding: 18px 30px;
+            position: sticky; top: 0; z-index: 1030;
+        }
+        .dash-page-title { font-size: 21px; font-weight: 800; color: #1f2430; letter-spacing: -.01em; margin: 0; }
+        .dash-page-sub { font-size: 13px; color: #8a93a3; margin: 2px 0 0; }
+
+        /* 面包屑导航 */
+        .dash-breadcrumb {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+            font-size: 12.5px; color: #9aa3b2; margin-bottom: 6px;
+        }
+        .dash-breadcrumb a { color: #9aa3b2; text-decoration: none; transition: color .15s ease; }
+        .dash-breadcrumb a:hover { color: var(--dash-primary); }
+        .dash-breadcrumb .sep { color: #cbd2de; font-size: 11px; }
+        .dash-breadcrumb .current { color: #5b6472; font-weight: 600; }
+
+        .dash-content { padding: 28px 30px; flex: 1; }
+
+        /* ===== 卡片 ===== */
+        .dash-card {
+            background: #fff;
+            border: 1px solid #eceef3;
+            border-radius: var(--dash-card-radius);
+            box-shadow: var(--dash-shadow);
+            transition: box-shadow .25s ease, transform .25s ease;
+        }
+        .dash-card:hover { box-shadow: var(--dash-shadow-hover); }
+        .stat-card {
+            border: none; border-radius: var(--dash-card-radius);
+            box-shadow: var(--dash-shadow);
+            overflow: hidden; position: relative;
+        }
+        .stat-icon {
+            width: 52px; height: 52px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+        }
+        .stat-number { font-size: 30px; font-weight: 800; color: #1f2430; line-height: 1; }
+        .stat-label { font-size: 13px; color: #8a93a3; margin-top: 4px; }
+
+        /* ===== 表格 ===== */
+        .table-dash { background: #fff; border-radius: var(--dash-card-radius); overflow: hidden; box-shadow: var(--dash-shadow); }
+        .table-dash thead th {
+            background: #f8f9fc; color: #8a93a3; font-size: 12px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .04em;
+            border-bottom: 1px solid #eceef3; padding: 14px 18px;
+        }
+        .table-dash tbody td { padding: 14px 18px; vertical-align: middle; border-bottom: 1px solid #f2f3f7; font-size: 14px; }
+        .table-dash tbody tr:last-child td { border-bottom: none; }
+        .table-dash tbody tr { transition: background .15s ease; }
+        .table-dash tbody tr:hover { background: #fafbff; }
+
+        .card-dashed { border-style: dashed; }
+        .dash-empty {
+            text-align: center; padding: 50px 20px; color: #8a93a3;
+        }
+        .dash-empty i { font-size: 40px; color: #cbd2de; }
+
+        /* 响应式：小屏侧边栏变为顶部 */
+        @media (max-width: 991px) {
+            .dashboard-sidebar {
+                position: static; width: 100% !important; min-height: auto;
+                flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px;
+                padding: 12px 16px;
+            }
+            .dashboard-sidebar.collapsed { width: 100% !important; }
+            .dashboard-sidebar.collapsed .sidebar-brand span:not(.brand-dot),
+            .dashboard-sidebar.collapsed .nav-section-label,
+            .dashboard-sidebar.collapsed .nav-link-dashboard span,
+            .dashboard-sidebar.collapsed .sidebar-footer .user-mini .name,
+            .dashboard-sidebar.collapsed .sidebar-footer .user-mini .role { display: revert; }
+            .sidebar-resizer { display: none; }
+            .sidebar-brand { padding: 0 16px 0 0; }
+            .nav-section-label { display: none; }
+            .nav.flex-column { flex-direction: row !important; flex-wrap: wrap; }
+            .sidebar-footer { display: none; }
+            .dashboard-main { margin-left: 0; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- 侧边栏 -->
+    <nav class="dashboard-sidebar d-flex flex-column text-white">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+            <a href="{% url 'blog:dashboard_home' %}" class="sidebar-brand">
+                <img src="{% static 'img/logo.png' %}" alt="博客后台" class="sidebar-brand-logo">
+                <span>博客后台</span>
+            </a>
+            <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="折叠/展开侧边栏">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+        </div>
+
+        <div class="nav-section-label">内容创作</div>
+        <ul class="nav flex-column mb-2">
+            <li class="nav-item">
+                <a class="nav-link-dashboard d-flex align-items-center gap-2 {% if active == 'article_create' %}active{% endif %}"
+                   href="{% url 'blog:dashboard_article_create' %}">
+                    <i class="bi bi-pencil-square"></i>
+                    <span>写文章</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="nav-section-label">我的管理</div>
+        <ul class="nav flex-column mb-2">
+            <li class="nav-item">
+                <a class="nav-link-dashboard d-flex align-items-center gap-2 {% if active == 'home' %}active{% endif %}"
+                   href="{% url 'blog:dashboard_home' %}">
+                    <i class="bi bi-house-door"></i>
+                    <span>仪表盘</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link-dashboard d-flex align-items-center gap-2 {% if active == 'articles' %}active{% endif %}"
+                   href="{% url 'blog:dashboard_article_list' %}">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span>我的文章</span>
+                </a>
+            </li>
+        </ul>
+
+        {% if user.is_superuser %}
+        <div class="nav-section-label">全站管理</div>
+        <ul class="nav flex-column mb-2">
+            <li class="nav-item">
+                <a class="nav-link-dashboard d-flex align-items-center gap-2 {% if active == 'categories' %}active{% endif %}"
+                   href="{% url 'blog:dashboard_category_list' %}">
+                    <i class="bi bi-folder"></i>
+                    <span>分类管理</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link-dashboard d-flex align-items-center gap-2 {% if active == 'tags' %}active{% endif %}"
+                   href="{% url 'blog:dashboard_tag_list' %}">
+                    <i class="bi bi-tags"></i>
+                    <span>标签管理</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link-dashboard d-flex align-items-center gap-2 {% if active == 'users' %}active{% endif %}"
+                   href="{% url 'blog:dashboard_user_list' %}">
+                    <i class="bi bi-people"></i>
+                    <span>用户管理</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link-dashboard d-flex align-items-center gap-2 justify-content-between {% if active == 'comments' %}active{% endif %}"
+                   href="{% url 'blog:dashboard_comment_list' %}">
+                    <span class="d-flex align-items-center gap-2">
+                        <i class="bi bi-chat-square-text"></i>
+                        <span>评论审核</span>
+                    </span>
+                    {# 待审核计数 badge：仅当有待审核评论时显示，引导管理员及时处理 #}
+                    {% if pending_comment_count > 0 %}
+                        <span class="badge bg-danger rounded-pill ms-auto">{{ pending_comment_count }}</span>
+                    {% endif %}
+                </a>
+            </li>
+        </ul>
+        {% endif %}
+
+        <div class="sidebar-footer">
+            <ul class="nav flex-column mb-3">
+                <li class="nav-item">
+                    <a class="nav-link-dashboard d-flex align-items-center gap-2" href="{% url 'blog:article_list' %}">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                        <span>查看前台</span>
+                    </a>
+                </li>
+            <li class="nav-item">
+                <form method="post" action="{% url 'users:logout' %}" class="w-100">
+                    {% csrf_token %}
+                    <button type="submit" class="nav-link-dashboard d-flex align-items-center gap-2 w-100 border-0 bg-transparent text-start" style="cursor:pointer;">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>退出登录</span>
+                    </button>
+                </form>
+            </li>
+            </ul>
+            <div class="user-mini">
+                <span class="avatar">{{ user.username|first|upper }}</span>
+                <div>
+                    <div class="name">{{ user.username }}</div>
+                    <div class="role">{% if user.is_superuser %}管理员{% else %}作者{% endif %}</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 拖拽分隔条 -->
+    <div class="sidebar-resizer" id="sidebarResizer" title="拖动调整宽度"></div>
+
+    <!-- 主内容 -->
+    <div class="dashboard-main d-flex flex-column" id="dashboardMain">
+        <!-- 顶部栏 -->
+        <header class="dash-topbar">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb" class="dash-breadcrumb">
+                        {% block page_breadcrumb %}
+                        <a href="{% url 'blog:dashboard_home' %}">首页</a>
+                        {% endblock %}
+                    </nav>
+                    <h1 class="dash-page-title">{% block page_title %}{% endblock %}</h1>
+                    <p class="dash-page-sub">{% block page_subtitle %}{% endblock %}</p>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="d-none d-sm-inline-flex align-items-center gap-2 text-muted small">
+                        <span class="avatar" style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;">{{ user.username|first|upper }}</span>
+                        {{ user.username }}
+                    </span>
+                    {% block page_action %}{% endblock %}
+                </div>
+            </div>
+        </header>
+
+        <!-- 内容区 -->
+        <main class="dash-content d-flex flex-column flex-grow-1">
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="text-center text-muted small py-3">
+            &copy; {% now "Y" %} {{ user.username }} · 后台管理
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function () {
+            var root = document.documentElement;
+            var sidebar = document.querySelector('.dashboard-sidebar');
+            var resizer = document.getElementById('sidebarResizer');
+            var toggle = document.getElementById('sidebarToggle');
+            var STORAGE_W = 'dash_sidebar_width';
+            var STORAGE_C = 'dash_sidebar_collapsed';
+            var MIN = 200, MAX = 460;
+
+            // 恢复折叠/宽度状态
+            try {
+                if (localStorage.getItem(STORAGE_C) === '1') {
+                    sidebar.classList.add('collapsed');
+                } else {
+                    var saved = parseInt(localStorage.getItem(STORAGE_W), 10);
+                    if (saved >= MIN && saved <= MAX) {
+                        root.style.setProperty('--sidebar-width', saved + 'px');
+                    }
+                }
+            } catch (e) {}
+
+            // 折叠/展开
+            toggle.addEventListener('click', function () {
+                var collapsed = sidebar.classList.toggle('collapsed');
+                try { localStorage.setItem(STORAGE_C, collapsed ? '1' : '0'); } catch (e) {}
+            });
+
+            // 拖拽调整宽度
+            var startX = 0, startW = 0, dragging = false;
+            resizer.addEventListener('mousedown', function (e) {
+                if (sidebar.classList.contains('collapsed')) return;
+                dragging = true;
+                startX = e.clientX;
+                startW = sidebar.offsetWidth;
+                document.body.classList.add('sidebar-resizing');
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function (e) {
+                if (!dragging) return;
+                var w = startW + (e.clientX - startX);
+                w = Math.max(MIN, Math.min(MAX, w));
+                root.style.setProperty('--sidebar-width', w + 'px');
+            });
+            document.addEventListener('mouseup', function () {
+                if (!dragging) return;
+                dragging = false;
+                document.body.classList.remove('sidebar-resizing');
+                try { localStorage.setItem(STORAGE_W, parseInt(getComputedStyle(root).getPropertyValue('--sidebar-width'), 10)); } catch (e) {}
+            });
+        })();
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

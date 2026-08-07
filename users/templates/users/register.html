@@ -1,0 +1,235 @@
+{% extends "blog/base.html" %}
+{% load static form_tags %}
+
+{% block title %}注册 - 我的博客{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* ===== 破壁动画：品牌主视觉 + 磨砂雾气 ===== */
+    .breakwall-stage {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        overflow: hidden;
+        pointer-events: none;
+    }
+    /* 背后清晰的品牌主视觉 */
+    .brand-visual {
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(60% 80% at 20% 20%, rgba(99,102,241,.55), transparent 60%),
+            radial-gradient(50% 70% at 85% 30%, rgba(14,165,233,.45), transparent 60%),
+            radial-gradient(70% 90% at 60% 90%, rgba(139,92,246,.5), transparent 60%),
+            linear-gradient(160deg, #0f172a 0%, #1e1b4b 55%, #020617 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .brand-visual .brand-mark {
+        text-align: center;
+        color: #e2e8f0;
+        opacity: .9;
+        transform: translateY(0);
+        transition: transform 1.2s ease;
+    }
+    .brand-visual .brand-mark .logo-glyph {
+        font-size: 4.2rem;
+        background: linear-gradient(135deg, #c7d2fe, #a5b4fc);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        text-shadow: 0 0 40px rgba(129,140,248,.4);
+    }
+    .brand-visual .brand-mark .brand-name {
+        font-size: 1.4rem; letter-spacing: .4em; margin-top: 10px; text-indent: .4em;
+        color: #cbd5e1;
+    }
+    /* 磨砂雾气层：覆盖在品牌视觉之上，注册成功后消散 */
+    .frost-veil {
+        position: absolute;
+        inset: 0;
+        backdrop-filter: blur(22px) saturate(120%);
+        -webkit-backdrop-filter: blur(22px) saturate(120%);
+        background: rgba(248,250,252,.72);
+        transition: opacity 1.4s ease, backdrop-filter 1.4s ease, -webkit-backdrop-filter 1.4s ease;
+    }
+    body.breaking .frost-veil {
+        opacity: 0;
+        backdrop-filter: blur(0px);
+        -webkit-backdrop-filter: blur(0px);
+    }
+    body.breaking .brand-visual .brand-mark { transform: translateY(-12px) scale(1.04); }
+
+    /* 注册卡片在雾气消散时略微沉下去，露出背后视觉 */
+    .auth-card { position: relative; z-index: 3; transition: opacity .8s ease, transform .8s ease; }
+    body.breaking .auth-card { opacity: 0; transform: scale(.96) translateY(10px); pointer-events: none; }
+
+    /* ===== 验证通过 提示框 ===== */
+    .granted-toast {
+        position: fixed;
+        left: 50%; top: 42%;
+        transform: translate(-50%, -50%) scale(.9);
+        z-index: 40;
+        text-align: center;
+        color: #f8fafc;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .6s ease, transform .6s ease;
+    }
+    .granted-toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .granted-toast .g-icon {
+        font-size: 3rem; color: #34d399;
+        text-shadow: 0 0 26px rgba(52,211,153,.6);
+        animation: pop .5s ease;
+    }
+    @keyframes pop { 0% { transform: scale(.3); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+    .granted-toast .g-title { font-size: 1.5rem; font-weight: 700; margin: 8px 0 4px; letter-spacing: .04em; }
+    .granted-toast .g-sub { font-size: 1rem; color: #cbd5e1; }
+    .granted-toast .g-en { font-size: .82rem; color: #94a3b8; letter-spacing: .08em; margin-top: 2px; }
+
+    /* ===== 闭合圆环进度 ===== */
+    .ring-progress {
+        position: fixed;
+        left: 50%; top: 62%;
+        transform: translate(-50%,-50%);
+        z-index: 40;
+        opacity: 0;
+        transition: opacity .4s ease;
+    }
+    .ring-progress.show { opacity: 1; }
+    .ring-progress svg { transform: rotate(-90deg); }
+    .ring-progress .ring-bg { stroke: rgba(255,255,255,.15); }
+    .ring-progress .ring-fg {
+        stroke: url(#ringGrad);
+        stroke-linecap: round;
+        transition: stroke-dashoffset 1.5s linear;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 破壁舞台：品牌主视觉 + 雾气 -->
+<div class="breakwall-stage" aria-hidden="true">
+    <div class="brand-visual">
+        <div class="brand-mark">
+            <div class="logo-glyph"><i class="bi bi-feather"></i></div>
+            <div class="brand-name">我的博客</div>
+        </div>
+    </div>
+    <div class="frost-veil"></div>
+</div>
+
+<!-- 验证通过提示 -->
+<div class="granted-toast" id="grantedToast">
+    <div class="g-icon"><i class="bi bi-check-circle-fill"></i></div>
+    <div class="g-title">验证通过。</div>
+    <div class="g-sub">前路漫漫，亦自此始。</div>
+    <div class="g-en">Access granted. The long road starts right here.</div>
+</div>
+
+<!-- 闭合圆环进度条 -->
+<div class="ring-progress" id="ringProgress">
+    <svg width="76" height="76" viewBox="0 0 76 76">
+        <defs>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#818cf8"/>
+                <stop offset="100%" stop-color="#34d399"/>
+            </linearGradient>
+        </defs>
+        <circle class="ring-bg" cx="38" cy="38" r="33" fill="none" stroke-width="5"/>
+        <circle class="ring-fg" id="ringFg" cx="38" cy="38" r="33" fill="none" stroke-width="5"
+                stroke-dasharray="207.3" stroke-dashoffset="207.3"/>
+    </svg>
+</div>
+
+<div class="row justify-content-center align-items-center" style="min-height: 78vh; position: relative; z-index: 3;">
+    <div class="col-md-7 col-lg-6 col-xl-5">
+        <div class="card border-0 shadow-lg rounded-4 auth-card" style="border-radius: 20px !important;">
+            <div class="card-body p-4 p-md-5 p-lg-5">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+                         style="width: 64px; height: 64px; background: linear-gradient(135deg, var(--cnb-primary), #8b5cf6); box-shadow: 0 6px 20px rgba(79,70,229,.35);">
+                        <i class="bi bi-person-plus-fill text-white" style="font-size: 28px;"></i>
+                    </div>
+                    <h2 class="h4 fw-bold mb-1">创建账户</h2>
+                    <p class="text-muted small mb-0">加入我们，开始记录你的故事</p>
+                </div>
+
+                <form method="post" id="registerForm" novalidate>
+                    {% csrf_token %}
+                    {% for field in form %}
+                        <div class="mb-3">
+                            <label class="form-label fw-medium small text-secondary">{{ field.label }}</label>
+                            {{ field|add_class:"form-control form-control-lg" }}
+                            {% if field.help_text %}
+                                <div class="form-text small">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% for error in field.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg" style="border-radius: 12px;">创建账户</button>
+                    </div>
+                </form>
+
+                <p class="text-center text-muted small mt-4 mb-0">
+                    已有账户？<a href="{% url 'users:login' %}" class="text-decoration-none fw-medium">去登录</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var RING_LEN = 207.3; // 2*pi*33
+    var form = document.getElementById('registerForm');
+    if (!form) return;
+
+    form.addEventListener('submit', function (e) {
+        // 先做原生校验；不通过则交给浏览器提示，不触发动画
+        if (!form.checkValidity()) return;
+
+        e.preventDefault();
+        var toast = document.getElementById('grantedToast');
+        var ring = document.getElementById('ringProgress');
+        var ringFg = document.getElementById('ringFg');
+
+        // 1) 破壁：雾气向四周消散，露出清晰品牌主视觉
+        document.body.classList.add('breaking');
+
+        // 2) 验证通过提示框淡入
+        setTimeout(function () { toast.classList.add('show'); }, 420);
+
+        // 3) 圆环进度闭合（约 1.5 秒）
+        setTimeout(function () {
+            ring.classList.add('show');
+            // 强制回流后设置 offset，触发 transition
+            void ringFg.getBoundingClientRect();
+            ringFg.style.strokeDashoffset = '0';
+        }, 700);
+
+        // 4) 闭合瞬间自动提交，服务端登录并跳转后台发布页
+        setTimeout(function () {
+            toast.classList.remove('show');
+            ring.classList.remove('show');
+            submitForm();
+        }, 700 + 1500 + 200);
+
+        // 无论动画是否异常，都确保表单真正提交（服务端重定向到后台）
+        // 注意：必须用 form.submit() 而非 requestSubmit()，因为 requestSubmit 会
+        // 再次触发 submit 事件，导致本监听器递归执行、无限 preventDefault 而无法真正提交。
+        function submitForm() {
+            try {
+                form.submit();   // 直接提交，不重新触发 submit 事件
+            } catch (err) {
+                window.location.href = "{% url 'blog:dashboard_article_create' %}";
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}

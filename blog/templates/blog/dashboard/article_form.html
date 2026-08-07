@@ -1,0 +1,50 @@
+{% extends "blog/dashboard/base.html" %}
+{% load static form_tags %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_breadcrumb %}
+<a href="{% url 'blog:dashboard_home' %}">首页</a>
+<span class="sep">/</span>
+<a href="{% url 'blog:dashboard_article_list' %}">文章管理</a>
+<span class="sep">/</span>
+<span class="current">{{ title }}</span>
+{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}请填写文章信息并保存{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="dash-card">
+            <div class="card-body p-4 p-md-5">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% for field in form %}
+                        <div class="mb-4">
+                            <label class="form-label fw-medium">{{ field.label }}</label>
+                            {% if field.name == 'content' %}
+                                {{ field|add_class:"form-control" }}
+                                <div class="form-text">支持 Markdown 语法，包含标题、列表、代码块与 <code>```mermaid</code> 流程图</div>
+                            {% else %}
+                                {{ field|add_class:"form-control" }}
+                            {% endif %}
+                            {% if field.help_text %}
+                                <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% for error in field.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                    <datalist id="category-datalist">
+                        {% for c in categories %}<option value="{{ c.name }}">{% endfor %}
+                    </datalist>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary rounded-pill px-4">{{ submit_label }}</button>
+                        <a href="{% url 'blog:dashboard_article_list' %}" class="btn btn-outline-secondary rounded-pill px-4">取消</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

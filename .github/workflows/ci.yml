@@ -1,0 +1,43 @@
+name: CI - Django Check & Test
+
+# 触发条件：push 或 PR 到 main 分支
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 默认在最新 Ubuntu 上运行
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Django 检查与测试
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 检出代码
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # 2. 安装 Python 3.12
+      - name: 安装 Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 3. 安装项目依赖
+      - name: 安装项目依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. Django 配置检查
+      - name: Django 系统检查
+        run: python manage.py check
+
+      # 5. 运行单元测试
+      - name: 运行单元测试
+        run: python manage.py test
