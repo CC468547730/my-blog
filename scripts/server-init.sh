@@ -7,10 +7,14 @@
 #   2. 以 root 或具有 sudo 权限的用户执行： bash server-init.sh
 #   3. 执行完成后，在 GitHub 仓库配置 Secrets（见脚本末尾说明）
 #
-# 注意：
-#   - 本脚本会创建 deploy 用户并加入 docker 组，使其可执行 docker 命令
-#   - GitHub Actions 通过 appleboy/ssh-action 以 deploy 用户登录，使用你本地的私钥
-#   - 公部署公钥已内置在 PUBKEY 变量中，如需更换请替换该值
+# 注意（权限划分说明）：
+#   - 【初始化阶段】本脚本仅需由 root（或具 sudo 权限用户）执行一次，
+#     用于安装 Docker / Nginx、创建部署用户、注入公钥、生成 .env、配置防火墙。
+#   - 【部署阶段】脚本运行完成后，GitHub Actions 通过 appleboy/ssh-action
+#     以 deploy 用户（非 root）登录，使用你本地的私钥拉取镜像并运行容器，
+#     全程不使用 root 权限部署业务。
+#   - 本脚本会创建 deploy 用户并加入 docker 组，使其可无 sudo 执行 docker 命令
+#   - 部署公钥已内置在 PUBKEY 变量中，如需更换请替换该值
 
 set -euo pipefail
 
@@ -118,14 +122,17 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl enable --now nginx
 
 echo "==> [7/7] 配置防火墙（UFW），仅开放必要端口"
+# 说明：本机采用 Docker 部署，docker-compose 已将容器 8000 端口发布到宿主机 8000。
+# Docker 会自行向 iptables 注入转发规则，因此对外只需开放 80/443（由宿主机 Nginx 反代），
+# 无需对外暴露 8000；UFW 仅作为宿主机入站兜底策略。
 ufw --force reset
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 22/tcp        # SSH
-ufw allow 80/tcp        # HTTP
+ufw allow 80/tcp        # HTTP（Nginx 对外提供）
 ufw allow 443/tcp       # HTTPS（后续 certbot 使用）
 ufw --force enable
-echo "    防火墙已启用，开放端口：22/80/443"
+echo "    防火墙已启用，开放端口：22/80/443（容器 8000 仅经 Nginx 反代，未对外暴露）"
 
 echo ""
 echo "============================ 部署初始化完成 ============================"
