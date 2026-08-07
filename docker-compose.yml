@@ -1,7 +1,7 @@
 services:
   web:
     build: .
-    image: my-blog:latest
+    image: ghcr.io/cc468547730/my-blog:latest
     container_name: my-blog
     ports:
       - "8000:8000"
