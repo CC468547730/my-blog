@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: cc468547730/my-blog
 
 jobs:
   # 第一步：快速检查（无需等待外部 CI）
