@@ -60,8 +60,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner && github.repository_owner.toLowerCase() }}/${{ github.event.repository.name && github.event.repository.name.toLowerCase() }}:latest
-            ${{ env.REGISTRY }}/${{ github.repository_owner && github.repository_owner.toLowerCase() }}/${{ github.event.repository.name && github.event.repository.name.toLowerCase() }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
