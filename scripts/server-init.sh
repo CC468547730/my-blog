@@ -79,6 +79,46 @@ EOF
 chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}"
 echo "    已生成 .env，ALLOWED_HOSTS 已预填 ${DOMAIN}"
 
+echo "==> [5.5/7] 写入 docker-compose.yml（镜像来自 GHCR，由 CI 推送）"
+# 说明：CD 部署脚本执行 `docker compose pull && up`，
+# 因此服务器上必须存在 docker-compose.yml 与 .env 才能拉起容器。
+# 镜像由 GitHub Actions 构建并推送至 ghcr.io，无需在服务器本地 build。
+cat > "${PROJECT_DIR}/docker-compose.yml" <<COMPOSE_EOF
+services:
+  web:
+    image: ghcr.io/cc468547730/my-blog:latest
+    container_name: my-blog
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: "\${SECRET_KEY}"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,${DOMAIN},www.${DOMAIN}"
+    volumes:
+      - ./data/db.sqlite3:/app/db.sqlite3
+      - ./data/staticfiles:/app/staticfiles
+      - ./data/media:/app/media
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+COMPOSE_EOF
+chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}"
+echo "    已写入 docker-compose.yml（镜像源 ghcr.io/cc468547730/my-blog:latest）"
+
+echo "==> [5.6/7] 预创建 data/ 持久化目录（SQLite / 静态文件 / 上传文件）"
+# 这些目录会被 docker-compose.yml 挂载到容器内，提前创建避免首次启动权限/缺失问题
+install -d -m 755 "${PROJECT_DIR}/data/db" "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
+# 初始化 SQLite 数据库文件（空文件占位，entrypoint 会执行 migrate 建表）
+touch "${PROJECT_DIR}/data/db.sqlite3"
+chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}/data"
+echo "    已创建 data/{db,staticfiles,media} 及 db.sqlite3 占位文件"
+
 echo "==> [6/7] 安装 Nginx 并写入站点配置（反向代理到 Django 容器）"
 apt-get install -y nginx
 # 写入站点配置：80 端口，静态文件直出，动态请求反代到 127.0.0.1:8000

@@ -1,11 +1,16 @@
 services:
+  # 采用「CI 构建镜像 → 推送 GHCR → 服务器 pull 运行」模式，
+  # 因此此处只声明 image（来自 GHCR），不写 build（避免服务器本地构建）。
+  # SECRET_KEY / ALLOWED_HOSTS 等变量由同目录 .env 文件注入（env_file）。
   web:
-    build: .
     image: ghcr.io/cc468547730/my-blog:latest
     container_name: my-blog
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
+      # 兜底默认值，确保即使 .env 缺失也不会启动失败
       DEBUG: "False"
       SECRET_KEY: "${SECRET_KEY}"
       ALLOWED_HOSTS: "localhost,127.0.0.1,linkuphub.top,www.linkuphub.top"
