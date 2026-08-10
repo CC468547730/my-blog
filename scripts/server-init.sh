@@ -75,6 +75,12 @@ cat > "${PROJECT_DIR}/.env" <<EOF
 SECRET_KEY=${RANDOM_SECRET}
 DEBUG=False
 ALLOWED_HOSTS=localhost,127.0.0.1,${DOMAIN},www.${DOMAIN}
+
+# PostgreSQL 数据库配置（数据库服务与 web 服务共用）
+DB_NAME=myblog
+DB_USER=myblog_user
+DB_PASSWORD=MyBlog_Passw0rd
+DATABASE_URL=postgresql://myblog_user:MyBlog_Passw0rd@db:5432/myblog
 EOF
 chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}"
 echo "    已生成 .env，ALLOWED_HOSTS 已预填 ${DOMAIN}"
@@ -85,9 +91,31 @@ echo "==> [5.5/7] 写入 docker-compose.yml（镜像来自 GHCR，由 CI 推送�
 # 镜像由 GitHub Actions 构建并推送至 ghcr.io，无需在服务器本地 build。
 cat > "${PROJECT_DIR}/docker-compose.yml" <<COMPOSE_EOF
 services:
+  # PostgreSQL 数据库服务（数据持久化到 ./data/postgres）
+  db:
+    image: postgres:16-alpine
+    container_name: my-blog-db
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: "\${DB_NAME}"
+      POSTGRES_USER: "\${DB_USER}"
+      POSTGRES_PASSWORD: "\${DB_PASSWORD}"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \${DB_USER} -d \${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   web:
     image: ghcr.io/cc468547730/my-blog:latest
     container_name: my-blog
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
     env_file:
@@ -96,8 +124,8 @@ services:
       DEBUG: "False"
       SECRET_KEY: "\${SECRET_KEY}"
       ALLOWED_HOSTS: "localhost,127.0.0.1,${DOMAIN},www.${DOMAIN}"
+      DATABASE_URL: "\${DATABASE_URL}"
     volumes:
-      - ./data/db.sqlite3:/app/db.sqlite3
       - ./data/staticfiles:/app/staticfiles
       - ./data/media:/app/media
     restart: unless-stopped
@@ -111,13 +139,12 @@ COMPOSE_EOF
 chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}"
 echo "    已写入 docker-compose.yml（镜像源 ghcr.io/cc468547730/my-blog:latest）"
 
-echo "==> [5.6/7] 预创建 data/ 持久化目录（SQLite / 静态文件 / 上传文件）"
+echo "==> [5.6/7] 预创建 data/ 持久化目录（PostgreSQL / 静态文件 / 上传文件）"
 # 这些目录会被 docker-compose.yml 挂载到容器内，提前创建避免首次启动权限/缺失问题
-install -d -m 755 "${PROJECT_DIR}/data/db" "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
-# 初始化 SQLite 数据库文件（空文件占位，entrypoint 会执行 migrate 建表）
-touch "${PROJECT_DIR}/data/db.sqlite3"
+install -d -m 755 "${PROJECT_DIR}/data/postgres" "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
+# PostgreSQL 数据由 postgres 容器初始化，此处仅创建空目录占位（无需 SQLite 占位文件）
 chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}/data"
-echo "    已创建 data/{db,staticfiles,media} 及 db.sqlite3 占位文件"
+echo "    已创建 data/{postgres,staticfiles,media} 持久化目录"
 
 echo "==> [6/7] 安装 Nginx 并写入站点配置（反向代理到 Django 容器）"
 apt-get install -y nginx
