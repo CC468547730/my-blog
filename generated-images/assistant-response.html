@@ -1,0 +1,548 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>我的博客</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/static/css/codehilite.css">
+    <link rel="stylesheet" href="/static/css/blog.css">
+    <link rel="icon" type="image/png" href="/static/img/logo.png?v=2">
+    <link rel="shortcut icon" type="image/png" href="/static/img/logo.png?v=2">
+    <link rel="apple-touch-icon" href="/static/img/logo.png?v=2">
+    <!-- 暗色模式：在渲染前应用，避免闪烁（与工具箱共用 localStorage 键 office_tool_theme） -->
+    <script>
+        // 全局主题管理函数，供全站（含工具箱 assistant.js）统一调用，避免重复实现
+        window.setTheme = function (theme) {
+            var t = (theme === 'dark' || theme === 'light') ? theme : 'light';
+            document.documentElement.setAttribute('data-theme', t);
+            try { localStorage.setItem('office_tool_theme', t); } catch (e) {}
+        };
+        (function () {
+            var t = null;
+            try { t = localStorage.getItem('office_tool_theme'); } catch (e) {}
+            if (!t) { t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'; }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <!-- 全站暗色模式样式（覆盖博客外壳，不影响 vuexy 原始文件） -->
+    <style>
+        :root {
+            --blog-bg: #ffffff;
+            --blog-text: #1f2430;
+            --blog-muted: #6b7280;
+            --blog-border: #e6e8f0;
+            --blog-card: #ffffff;
+            --blog-soft: #f6f7fb;
+            --blog-primary: #4f46e5;
+            --blog-primary-soft: #eef2ff;
+        }
+        [data-theme="dark"] {
+            --blog-bg: #14151d;
+            --blog-text: #e6e8f0;
+            --blog-muted: #9aa0b4;
+            --blog-border: #2c2f3f;
+            --blog-card: #1b1d29;
+            --blog-soft: #20222f;
+            --blog-primary: #818cf8;
+            --blog-primary-soft: #232544;
+        }
+        [data-theme="dark"] body { background: var(--blog-bg); color: var(--blog-text); }
+        [data-theme="dark"] .site-header { background: var(--blog-card); border-color: var(--blog-border); }
+        [data-theme="dark"] .site-header .nav-link-item,
+        [data-theme="dark"] .site-header .site-logo { color: var(--blog-text); }
+        [data-theme="dark"] .site-footer { background: var(--blog-card); color: var(--blog-muted); border-color: var(--blog-border); }
+        [data-theme="dark"] .main-container { background: transparent; }
+        [data-theme="dark"] .content-col .article-card,
+        [data-theme="dark"] .sidebar-col .widget,
+        [data-theme="dark"] .content-col .panel-card { background: var(--blog-card); color: var(--blog-text); border-color: var(--blog-border); }
+        [data-theme="dark"] .content-col h1, [data-theme="dark"] .content-col h2,
+        [data-theme="dark"] .content-col h3, [data-theme="dark"] .content-col h4 { color: var(--blog-text); }
+        [data-theme="dark"] .sidebar-col .widget-title,
+        [data-theme="dark"] .content-col .article-title a { color: var(--blog-text); }
+        [data-theme="dark"] .content-col .article-meta, [data-theme="dark"] .sidebar-col .widget a { color: var(--blog-muted); }
+        [data-theme="dark"] .content-col a { color: var(--blog-primary); }
+        [data-theme="dark"] .codehilite, [data-theme="dark"] pre { background: #1f2430 !important; color: #e5e7eb; }
+        [data-theme="dark"] .form-control, [data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select {
+            background: #14151d; color: var(--blog-text); border-color: var(--blog-border);
+        }
+        [data-theme="dark"] .btn-outline-secondary { color: var(--blog-text); border-color: var(--blog-border); }
+    </style>
+    
+<link rel="stylesheet" href="/static/css/assistant.css">
+
+</head>
+<body>
+
+    <!-- 顶部导航条：现代简约风格 -->
+    <header class="site-header">
+        <div class="container d-flex align-items-center justify-content-between py-2">
+            <div class="d-flex align-items-center gap-4">
+                <a href="/" class="site-logo">
+                    <img src="/static/img/logo.png" alt="我的博客" class="logo-img">我的博客
+                </a>
+                <nav class="d-none d-lg-flex align-items-center gap-1 main-links">
+                    <a href="/" class="nav-link-item">首页</a>
+                    <a href="/assistant/" class="nav-link-item">助理</a>
+                </nav>
+            </div>
+
+            <form class="search-box d-none d-md-flex" action="/" method="get">
+                <i class="bi bi-search"></i>
+                <input type="text" name="q" placeholder="搜索文章…" value="">
+            </form>
+
+            <nav class="top-nav">
+                
+                    <a href="/accounts/login/" class="btn btn-outline-primary btn-sm">登录</a>
+                    <a href="/accounts/register/" class="btn btn-primary btn-sm">注册</a>
+                
+            </nav>
+        </div>
+    </header>
+
+    <!-- 主体：两栏布局（主内容 + 右侧边栏） -->
+    <div class="container main-container">
+        <div class="row">
+            <main class="col-12 content-col">
+                
+<!-- 工具箱容器：整行宽度，基于 base 的 content 列 -->
+<div class="tool-wrapper">
+
+    <!-- 页内标题栏 -->
+    <div class="tool-page-head">
+        <div class="badge-ico"><img src="/static/img/logo.png" alt="工具箱" class="logo-ico"></div>
+        <div>
+            <h1>实用工具箱</h1>
+            <div class="sub">常用小工具合集 · 纯前端运行 · 数据本地保存</div>
+        </div>
+    </div>
+
+    <!-- 本次新增：工具搜索过滤框（中文别名匹配） -->
+    <div class="tool-search">
+        <i class="ti ti-search search-icon"></i>
+        <input type="text" id="toolSearch" placeholder="搜索工具，如：时间戳、二维码、贷款、md…" autocomplete="off">
+    </div>
+
+    <!-- 工具导航（按钮 + 面板由 id 对应，JS 处理切换） -->
+    <div class="tool-nav" id="toolNav">
+        <button data-tool="time" class="active"><i class="ti ti-clock"></i>时间戳转换</button>
+        <button data-tool="count"><i class="ti ti-text-size"></i>字数统计</button>
+        <button data-tool="json"><i class="ti ti-braces"></i>JSON格式化</button>
+        <button data-tool="color"><i class="ti ti-palette"></i>颜色转换</button>
+        <button data-tool="pass"><i class="ti ti-lock"></i>密码生成</button>
+        <button data-tool="b64"><i class="ti ti-code"></i>Base64</button>
+        <button data-tool="md"><i class="ti ti-markdown"></i>Markdown</button>
+        <button data-tool="lucky"><i class="ti ti-trophy"></i>年会抽奖</button>
+        <button data-tool="qrcode"><i class="ti ti-qrcode"></i>二维码</button>
+        <button data-tool="workday"><i class="ti ti-calendar"></i>工作日</button>
+        <button data-tool="loan"><i class="ti ti-coin"></i>贷款月供</button>
+        <button data-tool="ledger"><i class="ti ti-wallet"></i>简易记账</button>
+        <button data-tool="chart" data-alias="数据可视化 图表 柱状图 折线图 饼图 环形图 统计"><i class="ti ti-chart-bar"></i>数据图表</button>
+        <!-- 暗色模式切换：复用 base.html 的 window.setTheme，避免重复实现；点击在亮/暗之间切换 -->
+        <button id="themeToggle" class="theme-toggle-btn" type="button" onclick="toggleTheme()" title="切换亮色 / 暗色">
+            <i class="bi bi-moon-stars"></i><span id="themeLabel">暗色</span>
+        </button>
+    </div>
+
+    <!-- 1. 时间戳转换 -->
+    <div class="panel active" id="panel-time">
+        <div class="panel-card">
+            <h2>时间戳转换</h2>
+            <div class="desc">10 位秒级 / 13 位毫秒级时间戳互转</div>
+            <div class="row g-2 align-items-center mb-2">
+                <div class="col">
+                    <input type="text" class="form-control" id="ts-input" placeholder="输入时间戳，如 1716000000">
+                </div>
+                <div class="col-auto">
+                    <button class="btn-primary-custom" onclick="tsToDate()">转换</button>
+                </div>
+            </div>
+            <div class="text-muted small mb-1">当前时间：<span id="time-now">--</span></div>
+            <div class="text-muted small mb-2">当前时间戳（秒）：<input type="text" id="time-now-ts" class="form-control d-inline-block" style="width:160px" readonly></div>
+            <div class="result-box" id="ts-result">等待输入…</div>
+        </div>
+    </div>
+
+    <!-- 2. 字数统计 -->
+    <div class="panel" id="panel-count">
+        <div class="panel-card">
+            <h2>字数统计</h2>
+            <div class="desc">中文字符按字计，英文按词计</div>
+            <textarea class="form-control" id="count-input" rows="4" placeholder="粘贴文本…" oninput="countWords()"></textarea>
+            <div class="stat-grid">
+                <div class="stat-item"><div class="num" id="stat-chars">0</div><div class="lbl">字符数</div></div>
+                <div class="stat-item"><div class="num" id="stat-nospace">0</div><div class="lbl">去空格</div></div>
+                <div class="stat-item"><div class="num" id="stat-words">0</div><div class="lbl">词/字数</div></div>
+                <div class="stat-item"><div class="num" id="stat-lines">0</div><div class="lbl">行数</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. JSON 格式化 -->
+    <div class="panel" id="panel-json">
+        <div class="panel-card">
+            <h2>JSON 格式化</h2>
+            <div class="desc">格式化 / 压缩 JSON，一键复制</div>
+            <textarea class="form-control" id="json-input" rows="6" placeholder='{"name":"Tom", "age":18}'></textarea>
+            <div class="btn-row">
+                <button class="btn-primary-custom" onclick="jsonFormat()">格式化</button>
+                <button class="btn-ghost" onclick="jsonMinify()">压缩</button>
+                <button class="btn-ghost" onclick="copyText('json-output')"><i class="ti ti-copy"></i> 复制</button>
+            </div>
+            <!-- 本次新增：解析错误位置提示 -->
+            <div class="json-err-line" id="json-err-line"></div>
+            <div class="result-box" id="json-output">等待输入…</div>
+        </div>
+    </div>
+
+    <!-- 4. 颜色转换 -->
+    <div class="panel" id="panel-color">
+        <div class="panel-card">
+            <h2>颜色转换</h2>
+            <div class="desc">HEX / RGB / HSL 互转</div>
+            <div class="row g-2">
+                <div class="col">
+                    <label class="fld">HEX</label>
+                    <input class="form-control" id="hex-input" value="#4f46e5" oninput="colorSync('hex')">
+                </div>
+                <div class="col">
+                    <label class="fld">RGB</label>
+                    <input class="form-control" id="rgb-input" value="rgb(79, 70, 229)" oninput="colorSync('rgb')">
+                </div>
+                <div class="col">
+                    <label class="fld">HSL</label>
+                    <input class="form-control" id="hsl-input" value="hsl(245, 76%, 59%)" oninput="colorSync('hsl')">
+                </div>
+            </div>
+            <div class="color-preview" id="color-preview">#4F46E5</div>
+        </div>
+    </div>
+
+    <!-- 5. 密码生成 -->
+    <div class="panel" id="panel-pass">
+        <div class="panel-card">
+            <h2>密码生成</h2>
+            <div class="desc">使用加密安全随机数生成密码</div>
+            <div class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="fld">长度</label>
+                    <input type="number" class="form-control" id="pass-len" value="16" style="width:90px">
+                </div>
+                <div class="col">
+                    <label class="fld">包含</label>
+                    <div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-lower" checked><label class="form-check-label" for="opt-lower">小写</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-upper" checked><label class="form-check-label" for="opt-upper">大写</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-num" checked><label class="form-check-label" for="opt-num">数字</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-sym" checked><label class="form-check-label" for="opt-sym">符号</label></div>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <button class="btn-primary-custom" onclick="genPass()">生成</button>
+                </div>
+            </div>
+            <div class="mt-2"><input type="text" class="form-control" id="pass-output" readonly></div>
+            <div class="strength-bar"><div class="strength-fill" id="pass-strength"></div></div>
+            <div class="strength-txt" id="pass-strength-txt"></div>
+        </div>
+    </div>
+
+    <!-- 6. Base64 -->
+    <div class="panel" id="panel-b64">
+        <div class="panel-card">
+            <h2>Base64 编解码</h2>
+            <div class="desc">支持中文（UTF-8 安全）</div>
+            <textarea class="form-control" id="b64-input" rows="3" placeholder="输入文本或粘贴 Base64"></textarea>
+            <div class="btn-row">
+                <button class="btn-primary-custom" onclick="b64Encode()">编码 →</button>
+                <button class="btn-ghost" onclick="b64Decode()">← 解码</button>
+            </div>
+            <div class="result-box" id="b64-output">等待操作…</div>
+        </div>
+    </div>
+
+    <!-- 7. Markdown 预览 -->
+    <div class="panel" id="panel-md">
+        <div class="panel-card">
+            <h2>Markdown 预览</h2>
+            <div class="desc">实时渲染 Markdown（marked 本地优先，离线可用）</div>
+            <textarea class="form-control" id="md-input" rows="6" placeholder="# 标题&#10;**加粗** 与 `代码`" oninput="mdPreview()"></textarea>
+            <div class="md-preview mt-2" id="md-output"></div>
+        </div>
+    </div>
+
+    <!-- 8. 年会抽奖 -->
+    <div class="panel" id="panel-lucky">
+        <div class="panel-card">
+            <h2>年会抽奖</h2>
+            <div class="desc">支持去重、奖项分级、滚动动画与音效</div>
+            <textarea class="form-control" id="lucky-input" rows="3" placeholder="每行一个名字，或用逗号、空格分隔"></textarea>
+            <div class="row g-2 align-items-end mb-2">
+                <div class="col-auto">
+                    <label class="fld">滚动时长(秒)</label>
+                    <input type="number" class="form-control" id="lucky-duration" value="3" style="width:110px">
+                </div>
+                <div class="col-auto">
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="lucky-allow-repeat"><label class="form-check-label" for="lucky-allow-repeat">允许同一人多次中奖（跨奖项）</label></div>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="lucky-sound" checked><label class="form-check-label" for="lucky-sound">开奖音效</label></div>
+                </div>
+            </div>
+            <div class="lucky-stage" id="lucky-stage"><span class="lucky-placeholder">点击「开始抽奖」揭晓幸运儿</span></div>
+            <div class="lucky-tip text-muted small">默认每人限中一次（抽中后不再参与后续奖项）；勾选「允许同一人多次中奖（跨奖项）」可解除限制。</div>
+            <div class="btn-row">
+                <button id="lucky-draw-btn" class="btn-primary-custom" onclick="luckyDraw()">开始抽奖</button>
+                <button class="btn-ghost" onclick="luckyReset()">重置</button>
+                <button class="btn-ghost" onclick="copyLuckyResult()"><i class="ti ti-copy"></i> 复制名单</button>
+            </div>
+            <div class="award-config mt-2">
+                <div class="fw-semibold mb-1">奖项分级</div>
+                <div id="lucky-awards"></div>
+                <button class="btn-ghost mt-1" onclick="luckyAddAward()">+ 添加奖项</button>
+            </div>
+            <div class="mt-2"><div class="fw-semibold mb-1">中奖名单</div><div id="lucky-result">暂无</div></div>
+        </div>
+    </div>
+
+    <!-- 9. 二维码生成 -->
+    <div class="panel" id="panel-qrcode">
+        <div class="panel-card">
+            <h2>二维码生成</h2>
+            <div class="desc">文本 / 链接 / WiFi 一键生成，可下载</div>
+            <input type="text" class="form-control" id="qr-input" placeholder="输入内容…">
+            <div class="btn-row">
+                <button class="btn-primary-custom" onclick="genQR()">生成</button>
+                <button class="btn-ghost" onclick="downloadQR()">下载 PNG</button>
+            </div>
+            <div class="qr-canvas-wrap"><div id="qr-container"></div></div>
+        </div>
+    </div>
+
+    <!-- 10. 工作日计算 -->
+    <div class="panel" id="panel-workday">
+        <div class="panel-card">
+            <h2>工作日计算</h2>
+            <div class="desc">计算区间内自然日 / 工作日 / 周末天数</div>
+            <div class="row g-2">
+                <div class="col"><label class="fld">开始日期</label><input type="date" class="form-control" id="wd-start"></div>
+                <div class="col"><label class="fld">结束日期</label><input type="date" class="form-control" id="wd-end"></div>
+            </div>
+            <div class="btn-row"><button class="btn-primary-custom" onclick="calcWorkday()">计算</button></div>
+            <div class="stat-grid">
+                <div class="stat-item"><div class="num" id="wd-total">0</div><div class="lbl">自然日</div></div>
+                <div class="stat-item"><div class="num" id="wd-work">0</div><div class="lbl">工作日</div></div>
+                <div class="stat-item"><div class="num" id="wd-weekend">0</div><div class="lbl">周末</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 11. 贷款月供计算器 -->
+    <div class="panel" id="panel-loan">
+        <div class="panel-card">
+            <h2>贷款月供计算器</h2>
+            <div class="desc">等额本息 / 等额本金对比，支持多次提前还款模拟</div>
+            <div class="row g-2">
+                <div class="col"><label class="fld">贷款本金(元)</label><input type="number" class="form-control" id="loan-principal" value="1000000"></div>
+                <div class="col"><label class="fld">年利率(%)</label><input type="number" step="0.01" class="form-control" id="loan-rate" value="4.2"></div>
+                <div class="col"><label class="fld">期限(月)</label><input type="number" class="form-control" id="loan-months" value="360"></div>
+                <div class="col"><label class="fld">还款方式</label>
+                    <select class="form-control" id="loan-type">
+                        <option value="equal">等额本息</option>
+                        <option value="principal">等额本金</option>
+                    </select>
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn-primary-custom" onclick="calcLoan()">计算</button>
+                <button class="btn-ghost" onclick="exportLoanCSV()">导出明细 CSV</button>
+            </div>
+            <table class="loan-table">
+                <thead><tr><th>对比项</th><th>等额本息</th><th>等额本金</th></tr></thead>
+                <tbody>
+                    <tr><td>首月月供</td><td class="num" id="loan-ep-first">-</td><td class="num" id="loan-pp-first">-</td></tr>
+                    <tr><td>每月月供</td><td class="num" id="loan-ep-fixed">-</td><td class="num">递减</td></tr>
+                    <tr><td>支付利息</td><td class="num" id="loan-ep-interest">-</td><td class="num" id="loan-pp-interest">-</td></tr>
+                    <tr><td>还款总额</td><td class="num" id="loan-ep-total">-</td><td class="num" id="loan-pp-total">-</td></tr>
+                </tbody>
+            </table>
+            <div class="loan-detail-wrap mt-2">
+                <table class="loan-table" id="loan-detail">
+                    <thead><tr><th>期数</th><th>月供</th><th>本金</th><th>利息</th><th>剩余本金</th></tr></thead>
+                    <tbody><tr><td colspan="5" class="text-muted">点击「计算」后显示</td></tr></tbody>
+                </table>
+            </div>
+            <hr>
+            <div class="fw-semibold mb-1">提前还款模拟（可多次叠加）</div>
+            <div class="loan-prepay">
+                <div class="fld-group"><label class="fld">第几期后</label><input type="number" class="form-control" id="prepay-after" value="12"></div>
+                <div class="fld-group"><label class="fld">提前还款额(元)</label><input type="number" class="form-control" id="prepay-amount" value="200000"></div>
+                <div class="fld-group"><label class="fld">方式</label>
+                    <select class="form-control" id="prepay-mode">
+                        <option value="term">缩短期限</option>
+                        <option value="amount">减少月供</option>
+                    </select>
+                </div>
+                <div class="fld-group"><button class="btn-primary-custom" onclick="simulatePrepay()">叠加模拟</button></div>
+                <div class="fld-group"><button class="btn-ghost" onclick="resetPrepay()">清空模拟</button></div>
+            </div>
+            <div class="prepay-hint" id="prepay-hint"></div>
+            <div id="prepay-result"></div>
+        </div>
+    </div>
+
+    <!-- 12. 简易记账 -->
+    <div class="panel" id="panel-ledger">
+        <div class="panel-card">
+            <h2>简易记账</h2>
+            <div class="desc">本地保存，支持类别、月份筛选、CSV 导出</div>
+            <div class="ledger-form">
+                <div class="fld-group">
+                    <label class="fld">类型</label>
+                    <select class="form-control" id="lg-type">
+                        <option value="out">支出</option>
+                        <option value="in">收入</option>
+                    </select>
+                </div>
+                <div class="fld-group">
+                    <label class="fld">类别</label>
+                    <select class="form-control" id="lg-cat-select">
+                        <option>餐饮</option><option>交通</option><option>购物</option>
+                        <option>居住</option><option>娱乐</option><option>医疗</option>
+                        <option>工资</option><option>其他</option>
+                    </select>
+                </div>
+                <div class="fld-group">
+                    <label class="fld">金额</label>
+                    <input type="number" class="form-control" id="lg-amount" placeholder="0.00">
+                </div>
+                <div class="fld-group">
+                    <label class="fld">备注</label>
+                    <input type="text" class="form-control" id="lg-note" placeholder="可选">
+                </div>
+                <div class="fld-group"><button class="btn-primary-custom" onclick="addLedger()">添加</button></div>
+                <div class="fld-group"><button class="btn-ghost" onclick="exportLedgerCSV()">导出 CSV</button></div>
+                <div class="fld-group"><button class="btn-ghost" onclick="clearLedger()">清空</button></div>
+            </div>
+            <div class="mt-2">
+                <label class="fld">月份筛选</label>
+                <select class="form-control" id="lg-month-filter" onchange="filterLedgerByMonth()" style="max-width:220px">
+                    <option value="">全部月份</option>
+                </select>
+            </div>
+            <ul class="ledger-list" id="lg-list"></ul>
+            <div class="ledger-summary">
+                <div class="stat-item"><div class="num" id="lg-in">¥0.00</div><div class="lbl">总收入</div></div>
+                <div class="stat-item"><div class="num" id="lg-out">¥0.00</div><div class="lbl">总支出</div></div>
+                <div class="stat-item"><div class="num" id="lg-bal">¥0.00</div><div class="lbl">结余</div></div>
+            </div>
+            <!-- 本次新增：支出类别环形图（SVG） -->
+            <div class="ledger-chart" id="lg-chart"></div>
+            <div class="ledger-cat-summary" id="lg-cat"></div>
+            <div class="ledger-month-summary" id="lg-month"></div>
+        </div>
+    </div>
+
+    <!-- 13. 数据图表（纯前端零依赖 SVG 可视化） -->
+    <div class="panel" id="panel-chart">
+        <div class="panel-card">
+            <h2>数据图表</h2>
+            <div class="desc">粘贴「标签,数值」或 CSV，一键生成柱状 / 折线 / 饼图（纯前端，数据不出本机）</div>
+            <textarea class="form-control" id="chart-input" rows="6" placeholder="北京,320&#10;上海,280&#10;广州,210&#10;深圳,190"></textarea>
+            <div class="row g-2 align-items-end mb-2">
+                <div class="col">
+                    <label class="fld">图表类型</label>
+                    <select class="form-control" id="chart-type">
+                        <option value="bar">柱状图</option>
+                        <option value="line">折线图</option>
+                        <option value="pie">饼图</option>
+                        <option value="donut">环形图</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="chart-percent" checked><label class="form-check-label" for="chart-percent">显示百分比（饼/环）</label></div>
+                </div>
+                <div class="col-auto">
+                    <button class="btn-primary-custom" onclick="renderChart()">生成图表</button>
+                </div>
+                <div class="col-auto">
+                    <button class="btn-ghost" onclick="downloadChartSVG()">下载 SVG</button>
+                </div>
+            </div>
+            <div class="chart-wrap" id="chart-output"><span class="text-muted">输入数据后点击「生成图表」</span></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- 记账编辑模态框 -->
+<div class="modal fade" id="ledgerEditModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">编辑记录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-idx">
+                <div class="mb-2"><label class="fld">类型</label>
+                    <select class="form-control" id="edit-type">
+                        <option value="out">支出</option><option value="in">收入</option>
+                    </select></div>
+                <div class="mb-2"><label class="fld">类别</label>
+                    <select class="form-control" id="edit-cat">
+                        <option>餐饮</option><option>交通</option><option>购物</option>
+                        <option>居住</option><option>娱乐</option><option>医疗</option>
+                        <option>工资</option><option>其他</option>
+                    </select></div>
+                <div class="mb-2"><label class="fld">金额</label><input type="number" class="form-control" id="edit-amount"></div>
+                <div class="mb-2"><label class="fld">日期</label><input type="date" class="form-control" id="edit-date"></div>
+                <div class="mb-2"><label class="fld">备注</label><input type="text" class="form-control" id="edit-note"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button class="btn btn-primary" onclick="saveLedgerEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 提示气泡 -->
+<div id="toast" class="toast-msg"></div>
+
+            </main>
+            
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="site-footer">
+        <div class="container text-center">
+            &copy; 2026 博客 · 欢迎访问博客网站。
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Mermaid 流程图 / 时序图支持 -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.mermaid) {
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'default',
+                    securityLevel: 'loose',
+                    fontFamily: 'inherit'
+                });
+                mermaid.run({ querySelector: 'pre.mermaid' });
+            }
+        });
+    </script>
+    
+<script src="/static/js/qrcode.min.js"></script>
+<script src="/static/js/marked.min.js"></script>
+<script src="/static/js/assistant.js"></script>
+
+</body>
+</html>
