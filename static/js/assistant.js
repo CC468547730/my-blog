@@ -447,20 +447,39 @@ function copyLuckyResult() {
 }
 
 // ===================== 9. 二维码生成器 =====================
+// 采用 davidshimjs/qrcodejs 官方推荐的「容器 div」模式：
+// 由库内部创建 canvas，避免与已有 canvas 冲突及隐藏面板下尺寸错乱导致的全黑问题。
+let qrInstance = null;   // 缓存 QRCode 实例，便于后续更新
 function genQR() {
     const text = document.getElementById('qr-input').value;
-    const canvas = document.getElementById('qr-canvas');
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const container = document.getElementById('qr-container');
     if (!text.trim()) { showToast('请输入二维码内容'); return; }
     try {
-        new QRCode(canvas, { text: text, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+        // 每次生成前清空容器，避免重复实例化叠加
+        container.innerHTML = '';
+        if (!qrInstance) {
+            qrInstance = new QRCode(container, {
+                text: text,
+                width: 220,
+                height: 220,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        } else {
+            qrInstance.clear();
+            qrInstance.makeCode(text);
+        }
     } catch (e) {
-        showToast('二维码生成失败');
+        console.error('二维码生成失败:', e);
+        showToast('二维码生成失败，请重试');
     }
 }
 function downloadQR() {
-    const canvas = document.getElementById('qr-canvas');
+    // 从容器内的 canvas 取图像数据
+    const container = document.getElementById('qr-container');
+    const canvas = container.querySelector('canvas');
+    if (!canvas) { showToast('请先生成二维码'); return; }
     const url = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
