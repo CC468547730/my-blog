@@ -247,7 +247,7 @@ function genPass() {
     crypto.getRandomValues(arr);
     let pwd = '';
     for (let i = 0; i < len; i++) pwd += all[arr[i] % all.length];
-    out.textContent = pwd;
+    out.value = pwd;
     calcStrength(pwd);
 }
 function calcStrength(pwd) {
