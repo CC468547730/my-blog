@@ -160,6 +160,14 @@ install -d -m 755 "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
 chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}/data"
 echo "    已创建 data/{staticfiles,media} 持久化目录"
 
+# 修复 Nginx(www-data) 访问静态文件权限：
+# /home/deploy 默认权限为 750(drwxr-x---)，其他用户(含 www-data)无 traverse 权限，
+# 会导致 Nginx 的 location /static/ 与 /media/ 全部返回 403 Forbidden。
+# 给部署根目录链加上 o+x，使 www-data 可进入并读取静态/上传文件（不改变属主）。
+chmod 755 "$(dirname "${PROJECT_DIR}")"
+chmod -R 755 "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
+echo "    已修复静态/上传目录遍历权限（避免 Nginx 403）"
+
 echo "==> [6/7] 安装 Nginx 并写入站点配置（反向代理到 Django 容器）"
 apt-get install -y nginx
 # 写入站点配置：80 端口，静态文件直出，动态请求反代到 127.0.0.1:8000
