@@ -24,7 +24,7 @@ PROJECT_DIR="/home/${DEPLOY_USER}/my-blog"
 # 站点域名（同时也写入 .env 的 ALLOWED_HOSTS）
 DOMAIN="linkuphub.top"
 # 本地公钥内容（由 scripts/gen_ssh_key 流程生成，已内置）
-PUBKEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBETdIovlAwmNwqUDoO6vphjDytH9TgJupNsfwlylbWg 46884@DESKTOP-5P8DV1N"
+PUBKEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJCYuoMuJDFscfWfN/pTYo4r0zbwlF7oAngu3SLj8YIg github-actions-deploy"
 # ==================== 结束可配置变量 ====================
 
 echo "==> [1/7] 更新系统并安装基础依赖"
@@ -214,7 +214,7 @@ echo "接下来请在 GitHub 仓库配置以下 Secrets（Settings → Secrets a
 echo "  GHCR_TOKEN         = 具有 write:packages / read:packages / workflow 权限的 PAT"
 echo "  SSH_HOST           = 本服务器的公网 IP 或域名"
 echo "  SSH_USER           = ${DEPLOY_USER}"
-echo "  SSH_PRIVATE_KEY    = 你本地的私钥内容（C:\\Users\\46884\\.ssh\\id_ed25519 文件全文）"
+echo "  SSH_PRIVATE_KEY    = 你本地的私钥内容（C:\\Users\\46884\\.ssh\\id_ed25519_deploy 文件全文）"
 echo ""
 echo "DNS 提醒：请将域名 ${DOMAIN} 的 A 记录指向本服务器公网 IP。"
 echo "随后向 main 分支推送一次代码，即可触发 CD 自动部署。"
