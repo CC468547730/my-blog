@@ -1,34 +1,17 @@
 services:
-  # PostgreSQL 数据库服务（数据持久化到 ./data/postgres）
-  db:
-    image: postgres:16-alpine
-    container_name: my-blog-db
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: "${DB_NAME}"
-      POSTGRES_USER: "${DB_USER}"
-      POSTGRES_PASSWORD: "${DB_PASSWORD}"
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
   # 采用「CI 构建镜像 → 推送 GHCR → 服务器 pull 运行」模式，
   # 因此此处只声明 image（来自 GHCR），不写 build（避免服务器本地构建）。
   # SECRET_KEY / ALLOWED_HOSTS / DATABASE_URL 等变量由同目录 .env 文件注入（env_file）。
+  #
+  # 网络说明：使用 host 网络模式（network_mode: host），容器直接共享宿主机网络栈。
+  # 这样容器内 127.0.0.1:5432 即宿主 PostgreSQL、127.0.0.1:8000 即 Gunicorn，
+  # 彻底规避 Docker 网桥路由/防火墙导致的容器→宿主机连通问题（已生产验证）。
+  # 注意：host 模式下 ports 映射与 extra_hosts 均不生效，已移除。
   web:
     image: ghcr.io/cc468547730/my-blog:latest
     container_name: my-blog
-    depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "8000:8000"
+    # 共享宿主机网络，容器内 localhost 即宿主机服务
+    network_mode: "host"
     env_file:
       - .env
     environment:
@@ -36,7 +19,8 @@ services:
       DEBUG: "False"
       SECRET_KEY: "${SECRET_KEY}"
       ALLOWED_HOSTS: "localhost,127.0.0.1,linkuphub.top,www.linkuphub.top"
-      DATABASE_URL: "${DATABASE_URL}"
+      # host 模式下直接用 127.0.0.1 访问宿主 PostgreSQL（覆盖 .env 同名变量）
+      DATABASE_URL: "postgresql://myblog_user:MyBlog_Passw0rd@127.0.0.1:5432/myblog"
     volumes:
       - ./data/staticfiles:/app/staticfiles
       - ./data/media:/app/media
