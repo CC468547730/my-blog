@@ -302,6 +302,8 @@ function mdPreview() {
 // ===================== 8. 年会抽奖 =====================
 let lotteryTimer = null;
 let winners = [];           // 已抽出名单（用于去重）
+let awardWinners = {};      // 按奖项索引存储的中奖者：{ 0: ['甲'], 1: ['乙','丙'], ... }
+let drawnNames = new Set(); // 全局已中奖人集合（不允许跨奖项重复）
 let awardConfig = [         // 奖项分级配置
     { name: '一等奖', count: 1 },
     { name: '二等奖', count: 2 },
@@ -341,15 +343,41 @@ function luckyAddAward() {
     awardConfig.push({ name: '新奖项', count: 1 });
     renderAwardConfig();
 }
+// 找到当前应该抽取的奖项索引：按顺序找到第一个未满员的奖项
+function findCurrentAwardIndex() {
+    for (let idx = 0; idx < awardConfig.length; idx++) {
+        const list = awardWinners[idx] || [];
+        if (list.length < awardConfig[idx].count) return idx;
+    }
+    return -1;
+}
+// 渲染中奖名单：每个奖项只展示自己的中奖者
+function renderLuckyResult() {
+    const resultBox = document.getElementById('lucky-result');
+    let html = '';
+    awardConfig.forEach((a, idx) => {
+        const picked = awardWinners[idx] || [];
+        html += '<div class="award-group"><div class="award-title"><span class="award-badge">' + a.name + '</span>(' + picked.length + '/' + a.count + ')</div>' +
+            picked.map(w => '<span class="win-item">' + w + '</span>').join('') + '</div>';
+    });
+    resultBox.innerHTML = html || '暂无';
+}
 function luckyDraw() {
     const names = parseNames(document.getElementById('lucky-input').value);
     const allowRepeat = document.getElementById('lucky-allow-repeat').checked;
-    const pool = allowRepeat ? names.slice() : names.filter(n => !winners.includes(n));
     const stage = document.getElementById('lucky-stage');
-    const resultBox = document.getElementById('lucky-result');
+    // 在未勾选"允许重复中奖"时，已中过任何奖项的人均不可再参与
+    const pool = allowRepeat ? names.slice() : names.filter(n => !drawnNames.has(n));
     if (!pool.length) {
         stage.innerHTML = '<span class="lucky-placeholder">没有可抽取的人</span>';
-        showToast('候选名单为空或已全部抽出');
+        showToast(allowRepeat ? '候选名单为空' : '候选名单为空或所有人都已中过奖');
+        return;
+    }
+    // 确定本次抽取哪个奖项
+    const awardIdx = findCurrentAwardIndex();
+    if (awardIdx === -1) {
+        stage.innerHTML = '<span class="lucky-placeholder">所有奖项已抽满</span>';
+        showToast('所有奖项已抽满');
         return;
     }
     let i = 0;
@@ -363,21 +391,21 @@ function luckyDraw() {
         clearInterval(lotteryTimer);
         const winner = pool[Math.floor(Math.random() * pool.length)];
         stage.innerHTML = '<span class="lucky-name win">' + winner + '</span>';
-        if (!allowRepeat) winners.push(winner);
-        // 按奖项分级汇总展示
-        let html = '';
-        awardConfig.forEach(a => {
-            const picked = winners.slice(0, a.count);
-            html += '<div class="award-group"><div class="award-title"><span class="award-badge">' + a.name + '</span>(' + picked.length + '/' + a.count + ')</div>' +
-                picked.map(w => '<span class="win-item">' + w + '</span>').join('') + '</div>';
-        });
-        resultBox.innerHTML = html || '暂无';
+        // 将中奖者归入对应奖项，并加入全局已中奖集合
+        if (!awardWinners[awardIdx]) awardWinners[awardIdx] = [];
+        awardWinners[awardIdx].push(winner);
+        if (!allowRepeat) drawnNames.add(winner);
+        // 兼容旧逻辑：仍向 winners 追加，便于其他可能依赖 winners 的代码
+        winners.push(winner);
+        renderLuckyResult();
         if (document.getElementById('lucky-sound').checked) playSound();
     }, duration * 1000);
 }
 function luckyReset() {
     if (lotteryTimer) clearInterval(lotteryTimer);
     winners = [];
+    awardWinners = {};
+    drawnNames = new Set();
     document.getElementById('lucky-stage').innerHTML = '<span class="lucky-placeholder">点击「开始抽奖」揭晓幸运儿</span>';
     document.getElementById('lucky-result').innerHTML = '暂无';
 }

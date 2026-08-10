@@ -185,13 +185,14 @@
                     <input type="number" class="form-control" id="lucky-duration" value="3" style="width:110px">
                 </div>
                 <div class="col-auto">
-                    <div class="form-check"><input class="form-check-input" type="checkbox" id="lucky-allow-repeat"><label class="form-check-label" for="lucky-allow-repeat">允许重复中奖</label></div>
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="lucky-allow-repeat"><label class="form-check-label" for="lucky-allow-repeat">允许同一人多次中奖（跨奖项）</label></div>
                 </div>
                 <div class="col-auto">
                     <div class="form-check"><input class="form-check-input" type="checkbox" id="lucky-sound" checked><label class="form-check-label" for="lucky-sound">开奖音效</label></div>
                 </div>
             </div>
             <div class="lucky-stage" id="lucky-stage"><span class="lucky-placeholder">点击「开始抽奖」揭晓幸运儿</span></div>
+            <div class="lucky-tip text-muted small">默认每人限中一次（抽中后不再参与后续奖项）；勾选「允许同一人多次中奖（跨奖项）」可解除限制。</div>
             <div class="btn-row">
                 <button class="btn-primary-custom" onclick="luckyDraw()">开始抽奖</button>
                 <button class="btn-ghost" onclick="luckyReset()">重置</button>
