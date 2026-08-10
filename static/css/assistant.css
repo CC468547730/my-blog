@@ -68,7 +68,7 @@
     box-shadow: 0 5px 14px rgba(15, 23, 42, 0.22);
 }
 .tool-page-head .badge-ico:hover .logo-ico {
-    transform: scale(3) rotate(10deg);
+    transform: scale(5) rotate(10deg);
     filter: drop-shadow(0 0 8px rgba(15, 23, 42, .35));
 }
 @keyframes floatIco {
