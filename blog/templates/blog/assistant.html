@@ -1,878 +1,418 @@
 {% extends "blog/base.html" %}
 {% load static %}
 
-{% block title %}办公室工具箱 - 我的博客{% endblock %}
-
-{# 注入工具页专属样式（不修改 base.html 与 vuexy 原始文件） #}
+{# ============ 头部样式：引入外部 assistant.css（从内联 style 拆分，不修改任何 Vuexy 原始文件） ============ #}
 {% block extra_head %}
-<style>
-    :root {
-        /* 复用后台紫色主题变量，保持与站点视觉一致 */
-        --dash-primary: #4f46e5;
-        --dash-primary-soft: #eef2ff;
-        --dash-card: #ffffff;
-        --dash-border: #e6e8f0;
-        --dash-text: #1f2430;
-        --dash-muted: #6b7280;
-    }
-    /* 工具页内容容器（基于 base 的 content 列，整行宽度） */
-    .tool-wrapper { max-width: 880px; margin: 24px auto 60px; padding: 0 16px; }
-
-    /* 页内标题栏（替代原独立页的 .tool-hero，沿用站点导航栏） */
-    .tool-page-head {
-        display: flex; align-items: center; gap: 10px;
-        margin-bottom: 18px;
-        padding-bottom: 14px;
-        border-bottom: 1px solid var(--dash-border);
-    }
-    .tool-page-head .badge-ico {
-        width: 38px; height: 38px; border-radius: 10px;
-        background: linear-gradient(120deg, #4f46e5 0%, #7c3aed 100%);
-        color: #fff; display: flex; align-items: center; justify-content: center;
-        font-size: 20px;
-    }
-    .tool-page-head h1 { font-size: 20px; margin: 0; font-weight: 600; }
-    .tool-page-head .sub { color: var(--dash-muted); font-size: 12.5px; margin-top: 2px; }
-
-    /* 工具导航按钮 */
-    .tool-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
-    .tool-nav button {
-        border: 1px solid var(--dash-border);
-        background: var(--dash-card);
-        color: var(--dash-text);
-        border-radius: 12px;
-        padding: 10px 14px;
-        font-size: 14px;
-        cursor: pointer;
-        transition: .18s;
-        display: flex; align-items: center; gap: 7px;
-    }
-    .tool-nav button i { color: var(--dash-primary); font-size: 16px; }
-    .tool-nav button:hover { border-color: var(--dash-primary); transform: translateY(-1px); }
-    .tool-nav button.active {
-        background: var(--dash-primary); color: #fff; border-color: var(--dash-primary);
-        box-shadow: 0 4px 12px rgba(79,70,229,.3);
-    }
-    .tool-nav button.active i { color: #fff; }
-
-    /* 工具面板 */
-    .panel { display: none; }
-    .panel.active { display: block; animation: fade .25s ease; }
-    @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-
-    .panel-card {
-        background: var(--dash-card);
-        border: 1px solid var(--dash-border);
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 2px 10px rgba(31,36,48,.04);
-    }
-    .panel-card h2 { font-size: 16px; margin: 0 0 4px; font-weight: 600; }
-    .panel-card .desc { color: var(--dash-muted); font-size: 12.5px; margin-bottom: 14px; }
-
-    label.fld { font-size: 13px; color: var(--dash-muted); display: block; margin-bottom: 6px; }
-    textarea, input.form-control, select.form-control {
-        border-radius: 10px; border: 1px solid var(--dash-border);
-        font-size: 14px; padding: 9px 12px;
-    }
-    textarea:focus, input:focus, select:focus { border-color: var(--dash-primary); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
-    .btn-primary-custom {
-        background: var(--dash-primary); border: none; color: #fff;
-        border-radius: 10px; padding: 8px 16px; font-size: 14px; cursor: pointer; transition: .18s;
-    }
-    .btn-primary-custom:hover { background: #4338ca; }
-    .btn-ghost {
-        background: var(--dash-primary-soft); color: var(--dash-primary); border: none;
-        border-radius: 10px; padding: 8px 16px; font-size: 14px; cursor: pointer; transition: .18s;
-    }
-    .btn-ghost:hover { background: #e0e7ff; }
-    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 14px; }
-
-    .result-box {
-        background: var(--dash-primary-soft);
-        border-radius: 10px; padding: 12px 14px; font-size: 13.5px;
-        word-break: break-all; white-space: pre-wrap; min-height: 44px;
-        border: 1px dashed #c7d2fe;
-    }
-    .stat-grid { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
-    .stat-item {
-        flex: 1; min-width: 110px; background: #f6f7fb; border-radius: 12px;
-        padding: 12px 14px; text-align: center;
-    }
-    .stat-item .num { font-size: 22px; font-weight: 700; color: var(--dash-primary); }
-    .stat-item .lbl { font-size: 12px; color: var(--dash-muted); margin-top: 2px; }
-
-    /* 颜色预览块 */
-    .color-preview {
-        width: 100%; height: 56px; border-radius: 10px; border: 1px solid var(--dash-border);
-        margin: 12px 0; display: flex; align-items: center; justify-content: center;
-        font-size: 13px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4);
-    }
-
-    /* 密码强度条 */
-    .strength-bar { height: 8px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin-top: 10px; }
-    .strength-fill { height: 100%; width: 0; transition: width .25s, background .25s; }
-    .strength-txt { font-size: 12px; color: var(--dash-muted); margin-top: 4px; }
-
-    /* Markdown 预览 */
-    .md-preview {
-        border: 1px solid var(--dash-border); border-radius: 10px; padding: 14px 18px;
-        min-height: 120px; background: #fff; font-size: 14px; line-height: 1.7;
-    }
-    .md-preview h1, .md-preview h2, .md-preview h3 { margin-top: .6em; }
-    .md-preview code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; }
-    .md-preview pre { background: #1f2430; color: #e5e7eb; padding: 12px; border-radius: 8px; overflow: auto; }
-    .md-preview pre code { background: none; padding: 0; color: inherit; }
-    .md-preview blockquote { border-left: 3px solid var(--dash-primary); margin: 0; padding-left: 12px; color: var(--dash-muted); }
-
-    .toast-msg {
-        position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
-        background: #1f2430; color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 13px;
-        opacity: 0; pointer-events: none; transition: .25s; z-index: 999;
-    }
-    .toast-msg.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    .form-check-label { font-size: 13px; color: var(--dash-muted); }
-
-    /* 年会抽奖：滚动舞台与中奖名单 */
-    .lucky-stage {
-        margin-top: 14px; min-height: 88px; border-radius: 14px;
-        background: linear-gradient(120deg, #4f46e5 0%, #7c3aed 100%);
-        display: flex; align-items: center; justify-content: center;
-        text-align: center; padding: 16px; flex-wrap: wrap; gap: 10px;
-        box-shadow: 0 6px 20px rgba(79,70,229,.18);
-    }
-    .lucky-placeholder { color: rgba(255,255,255,.85); font-size: 14px; }
-    .lucky-name {
-        color: #fff; font-size: 22px; font-weight: 700; letter-spacing: .04em;
-        padding: 4px 14px; border-radius: 10px; background: rgba(255,255,255,.12);
-    }
-    .lucky-name.win {
-        animation: pop .4s ease;
-        background: rgba(255,255,255,.22);
-        box-shadow: 0 0 0 3px rgba(255,255,255,.35);
-    }
-    @keyframes pop { 0% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-    #lucky-result .win-item { display: inline-block; margin: 2px 6px 2px 0; padding: 2px 10px; background: var(--dash-primary-soft); border-radius: 999px; color: var(--dash-primary); }
-
-    /* 奖项分级配置行 */
-    .award-row {
-        display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-        background: #f6f7fb; border: 1px solid var(--dash-border); border-radius: 10px; padding: 8px 10px;
-    }
-    .award-row .award-name { flex: 1; }
-    .award-row .award-name input { width: 100%; }
-    .award-row .award-num { width: 80px; }
-    .award-row .award-del {
-        border: none; background: #fee2e2; color: #dc2626; border-radius: 8px;
-        width: 34px; height: 34px; cursor: pointer; font-size: 16px; line-height: 1;
-    }
-    .award-row .award-del:hover { background: #fecaca; }
-    .award-badge {
-        display: inline-block; min-width: 64px; text-align: center;
-        background: linear-gradient(120deg, #4f46e5 0%, #7c3aed 100%);
-        color: #fff; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; margin-right: 8px;
-    }
-    /* 中奖名单按奖项分组 */
-    .award-group { margin-bottom: 10px; }
-    .award-group .award-title { font-size: 13px; font-weight: 600; color: var(--dash-text); margin-bottom: 4px; }
-</style>
+<link rel="stylesheet" href="{% static 'css/assistant.css' %}">
 {% endblock %}
 
 {% block content %}
+<!-- 工具箱容器：整行宽度，基于 base 的 content 列 -->
 <div class="tool-wrapper">
 
-    <!-- 页内标题（站点统一导航栏已在 base.html 中渲染） -->
+    <!-- 页内标题栏 -->
     <div class="tool-page-head">
-        <div class="badge-ico"><i class="bi bi-tools"></i></div>
+        <div class="badge-ico"><i class="ti ti-tool"></i></div>
         <div>
-            <h1>办公室工具箱</h1>
-            <div class="sub">纯前端 · 零依赖 · 数据不出本地浏览器</div>
+            <h1>实用工具箱</h1>
+            <div class="sub">常用小工具合集 · 纯前端运行 · 数据本地保存</div>
         </div>
     </div>
 
-    <!-- 工具导航 -->
+    <!-- 本次新增：工具搜索过滤框（中文别名匹配） -->
+    <div class="tool-search">
+        <i class="ti ti-search search-icon"></i>
+        <input type="text" id="toolSearch" placeholder="搜索工具，如：时间戳、二维码、贷款、md…" autocomplete="off">
+    </div>
+
+    <!-- 工具导航（按钮 + 面板由 id 对应，JS 处理切换） -->
     <div class="tool-nav" id="toolNav">
-        <button class="active" data-tool="time"><i class="bi bi-clock-history"></i>时间戳转换</button>
-        <button data-tool="count"><i class="bi bi-card-text"></i>字数统计</button>
-        <button data-tool="json"><i class="bi bi-braces"></i>JSON格式化</button>
-        <button data-tool="color"><i class="bi bi-palette"></i>颜色转换</button>
-        <button data-tool="pass"><i class="bi bi-shield-lock"></i>密码生成</button>
-        <button data-tool="b64"><i class="bi bi-code-slash"></i>Base64编解码</button>
-        <button data-tool="md"><i class="bi bi-markdown"></i>Markdown预览</button>
-        <button data-tool="lucky"><i class="bi bi-gift"></i>年会抽奖</button>
+        <button data-tool="time" class="active"><i class="ti ti-clock"></i>时间戳转换</button>
+        <button data-tool="count"><i class="ti ti-text-size"></i>字数统计</button>
+        <button data-tool="json"><i class="ti ti-braces"></i>JSON格式化</button>
+        <button data-tool="color"><i class="ti ti-palette"></i>颜色转换</button>
+        <button data-tool="pass"><i class="ti ti-lock"></i>密码生成</button>
+        <button data-tool="b64"><i class="ti ti-code"></i>Base64</button>
+        <button data-tool="md"><i class="ti ti-markdown"></i>Markdown</button>
+        <button data-tool="lucky"><i class="ti ti-trophy"></i>年会抽奖</button>
+        <button data-tool="qrcode"><i class="ti ti-qrcode"></i>二维码</button>
+        <button data-tool="workday"><i class="ti ti-calendar"></i>工作日</button>
+        <button data-tool="loan"><i class="ti ti-coin"></i>贷款月供</button>
+        <button data-tool="ledger"><i class="ti ti-wallet"></i>简易记账</button>
+        <button data-tool="chart" data-alias="数据可视化 图表 柱状图 折线图 饼图 环形图 统计"><i class="ti ti-chart-bar"></i>数据图表</button>
+        <!-- 暗色模式切换：复用 base.html 的 window.setTheme，避免重复实现；点击在亮/暗之间切换 -->
+        <button id="themeToggle" class="theme-toggle-btn" type="button" onclick="toggleTheme()" title="切换亮色 / 暗色">
+            <i class="bi bi-moon-stars"></i><span id="themeLabel">暗色</span>
+        </button>
     </div>
 
     <!-- 1. 时间戳转换 -->
-    <section class="panel active" id="panel-time">
+    <div class="panel active" id="panel-time">
         <div class="panel-card">
             <h2>时间戳转换</h2>
-            <div class="desc">在 Unix 时间戳（秒/毫秒）与本地可读时间之间互转。</div>
-            <label class="fld">当前时间</label>
-            <div class="result-box" id="time-now">—</div>
-            <div class="btn-row">
-                <button class="btn-ghost" onclick="copyText('time-now')"><i class="bi bi-clipboard me-1"></i>复制当前时间</button>
-                <button class="btn-ghost" onclick="copyText('time-now-ts')"><i class="bi bi-clipboard me-1"></i>复制时间戳(秒)</button>
+            <div class="desc">10 位秒级 / 13 位毫秒级时间戳互转</div>
+            <div class="row g-2 align-items-center mb-2">
+                <div class="col">
+                    <input type="text" class="form-control" id="ts-input" placeholder="输入时间戳，如 1716000000">
+                </div>
+                <div class="col-auto">
+                    <button class="btn-primary-custom" onclick="tsToDate()">转换</button>
+                </div>
             </div>
-            <input type="hidden" id="time-now-ts">
-            <label class="fld">输入时间戳（秒或毫秒）</label>
-            <input type="text" class="form-control" id="ts-input" placeholder="例如：1700000000 或 1700000000000">
-            <div class="btn-row">
-                <button class="btn-primary-custom" onclick="tsToDate()"><i class="bi bi-arrow-down me-1"></i>转换为日期</button>
-            </div>
+            <div class="text-muted small mb-1">当前时间：<span id="time-now">--</span></div>
+            <div class="text-muted small mb-2">当前时间戳（秒）：<input type="text" id="time-now-ts" class="form-control d-inline-block" style="width:160px" readonly></div>
             <div class="result-box" id="ts-result">等待输入…</div>
         </div>
-    </section>
+    </div>
 
     <!-- 2. 字数统计 -->
-    <section class="panel" id="panel-count">
+    <div class="panel" id="panel-count">
         <div class="panel-card">
             <h2>字数统计</h2>
-            <div class="desc">实时统计字符数、不含空格字符数、词数（英文按空格分词，中文按字计）。</div>
-            <label class="fld">输入文本</label>
-            <textarea class="form-control" id="count-input" rows="6" placeholder="在此粘贴或输入文本…" oninput="countWords()"></textarea>
+            <div class="desc">中文字符按字计，英文按词计</div>
+            <textarea class="form-control" id="count-input" rows="4" placeholder="粘贴文本…" oninput="countWords()"></textarea>
             <div class="stat-grid">
-                <div class="stat-item"><div class="num" id="stat-chars">0</div><div class="lbl">字符数(含空格)</div></div>
-                <div class="stat-item"><div class="num" id="stat-nospace">0</div><div class="lbl">字符数(去空格)</div></div>
-                <div class="stat-item"><div class="num" id="stat-words">0</div><div class="lbl">词数</div></div>
+                <div class="stat-item"><div class="num" id="stat-chars">0</div><div class="lbl">字符数</div></div>
+                <div class="stat-item"><div class="num" id="stat-nospace">0</div><div class="lbl">去空格</div></div>
+                <div class="stat-item"><div class="num" id="stat-words">0</div><div class="lbl">词/字数</div></div>
                 <div class="stat-item"><div class="num" id="stat-lines">0</div><div class="lbl">行数</div></div>
             </div>
         </div>
-    </section>
+    </div>
 
     <!-- 3. JSON 格式化 -->
-    <section class="panel" id="panel-json">
+    <div class="panel" id="panel-json">
         <div class="panel-card">
-            <h2>JSON 格式化 / 压缩</h2>
-            <div class="desc">格式化可阅读，压缩去空白；解析失败会提示错误位置。</div>
-            <label class="fld">输入 JSON</label>
-            <textarea class="form-control" id="json-input" rows="7" placeholder='{"name":"测试","list":[1,2,3]}'></textarea>
+            <h2>JSON 格式化</h2>
+            <div class="desc">格式化 / 压缩 JSON，一键复制</div>
+            <textarea class="form-control" id="json-input" rows="6" placeholder='{"name":"Tom", "age":18}'></textarea>
             <div class="btn-row">
-                <button class="btn-primary-custom" onclick="jsonFormat()"><i class="bi bi-arrows-expand me-1"></i>格式化</button>
-                <button class="btn-ghost" onclick="jsonMinify()"><i class="bi bi-arrows-collapse me-1"></i>压缩</button>
-                <button class="btn-ghost" onclick="copyText('json-output')"><i class="bi bi-clipboard me-1"></i>复制结果</button>
+                <button class="btn-primary-custom" onclick="jsonFormat()">格式化</button>
+                <button class="btn-ghost" onclick="jsonMinify()">压缩</button>
+                <button class="btn-ghost" onclick="copyText('json-output')"><i class="ti ti-copy"></i> 复制</button>
             </div>
-            <label class="fld">结果</label>
-            <div class="result-box" id="json-output" style="font-family:monospace;">等待操作…</div>
+            <!-- 本次新增：解析错误位置提示 -->
+            <div class="json-err-line" id="json-err-line"></div>
+            <div class="result-box" id="json-output">等待输入…</div>
         </div>
-    </section>
+    </div>
 
     <!-- 4. 颜色转换 -->
-    <section class="panel" id="panel-color">
+    <div class="panel" id="panel-color">
         <div class="panel-card">
             <h2>颜色转换</h2>
-            <div class="desc">支持 HEX、RGB、HSL 三种格式互转，并实时预览颜色。</div>
-            <label class="fld">HEX 颜色值</label>
-            <input type="text" class="form-control" id="hex-input" value="#4f46e5" oninput="colorSync()">
-            <label class="fld mt-2">RGB</label>
-            <input type="text" class="form-control" id="rgb-input" oninput="colorSync('rgb')">
-            <label class="fld mt-2">HSL</label>
-            <input type="text" class="form-control" id="hsl-input" oninput="colorSync('hsl')">
-            <div class="color-preview" id="color-preview">预览</div>
-            <div class="btn-row">
-                <button class="btn-ghost" onclick="copyText('hex-input')"><i class="bi bi-clipboard me-1"></i>复制 HEX</button>
+            <div class="desc">HEX / RGB / HSL 互转</div>
+            <div class="row g-2">
+                <div class="col">
+                    <label class="fld">HEX</label>
+                    <input class="form-control" id="hex-input" value="#4f46e5" oninput="colorSync('hex')">
+                </div>
+                <div class="col">
+                    <label class="fld">RGB</label>
+                    <input class="form-control" id="rgb-input" value="rgb(79, 70, 229)" oninput="colorSync('rgb')">
+                </div>
+                <div class="col">
+                    <label class="fld">HSL</label>
+                    <input class="form-control" id="hsl-input" value="hsl(245, 76%, 59%)" oninput="colorSync('hsl')">
+                </div>
             </div>
+            <div class="color-preview" id="color-preview">#4F46E5</div>
         </div>
-    </section>
+    </div>
 
     <!-- 5. 密码生成 -->
-    <section class="panel" id="panel-pass">
+    <div class="panel" id="panel-pass">
         <div class="panel-card">
             <h2>密码生成</h2>
-            <div class="desc">使用浏览器加密安全随机数生成，可自定义长度与选项。</div>
-            <label class="fld">长度：<span id="pass-len-val">16</span></label>
-            <input type="range" class="form-range" id="pass-len" min="6" max="64" value="16" oninput="document.getElementById('pass-len-val').textContent=this.value">
-            <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-lower" checked><label class="form-check-label" for="opt-lower">小写</label></div>
-            <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-upper" checked><label class="form-check-label" for="opt-upper">大写</label></div>
-            <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-num" checked><label class="form-check-label" for="opt-num">数字</label></div>
-            <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-sym"><label class="form-check-label" for="opt-sym">符号</label></div>
-            <div class="btn-row">
-                <button class="btn-primary-custom" onclick="genPass()"><i class="bi bi-arrow-repeat me-1"></i>生成密码</button>
-                <button class="btn-ghost" onclick="copyText('pass-output')"><i class="bi bi-clipboard me-1"></i>复制</button>
+            <div class="desc">使用加密安全随机数生成密码</div>
+            <div class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="fld">长度</label>
+                    <input type="number" class="form-control" id="pass-len" value="16" style="width:90px">
+                </div>
+                <div class="col">
+                    <label class="fld">包含</label>
+                    <div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-lower" checked><label class="form-check-label" for="opt-lower">小写</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-upper" checked><label class="form-check-label" for="opt-upper">大写</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-num" checked><label class="form-check-label" for="opt-num">数字</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="opt-sym" checked><label class="form-check-label" for="opt-sym">符号</label></div>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <button class="btn-primary-custom" onclick="genPass()">生成</button>
+                </div>
             </div>
-            <div class="result-box" id="pass-output" style="font-family:monospace;">点击「生成密码」…</div>
+            <div class="mt-2"><input type="text" class="form-control" id="pass-output" readonly></div>
             <div class="strength-bar"><div class="strength-fill" id="pass-strength"></div></div>
             <div class="strength-txt" id="pass-strength-txt"></div>
         </div>
-    </section>
+    </div>
 
-    <!-- 6. Base64 编解码 -->
-    <section class="panel" id="panel-b64">
+    <!-- 6. Base64 -->
+    <div class="panel" id="panel-b64">
         <div class="panel-card">
             <h2>Base64 编解码</h2>
-            <div class="desc">UTF-8 安全的 Base64 编码与解码（支持中文）。</div>
-            <label class="fld">输入文本</label>
-            <textarea class="form-control" id="b64-input" rows="5" placeholder="输入要编码或解码的内容…"></textarea>
+            <div class="desc">支持中文（UTF-8 安全）</div>
+            <textarea class="form-control" id="b64-input" rows="3" placeholder="输入文本或粘贴 Base64"></textarea>
             <div class="btn-row">
-                <button class="btn-primary-custom" onclick="b64Encode()"><i class="bi bi-lock me-1"></i>编码</button>
-                <button class="btn-ghost" onclick="b64Decode()"><i class="bi bi-unlock me-1"></i>解码</button>
-                <button class="btn-ghost" onclick="copyText('b64-output')"><i class="bi bi-clipboard me-1"></i>复制结果</button>
+                <button class="btn-primary-custom" onclick="b64Encode()">编码 →</button>
+                <button class="btn-ghost" onclick="b64Decode()">← 解码</button>
             </div>
-            <div class="result-box" id="b64-output" style="font-family:monospace;">等待操作…</div>
+            <div class="result-box" id="b64-output">等待操作…</div>
         </div>
-    </section>
+    </div>
 
     <!-- 7. Markdown 预览 -->
-    <section class="panel" id="panel-md">
+    <div class="panel" id="panel-md">
         <div class="panel-card">
             <h2>Markdown 预览</h2>
-            <div class="desc">左侧输入 Markdown，右侧（或下方）实时渲染预览。</div>
-            <div class="row">
-                <div class="col-md-6 mb-2">
-                    <label class="fld">Markdown 源码</label>
-                    <textarea class="form-control" id="md-input" rows="10" placeholder="# 标题&#10;**加粗** 与 *斜体*&#10;&#10;- 列表项&#10;- 列表项" oninput="mdPreview()"></textarea>
-                </div>
-                <div class="col-md-6">
-                    <label class="fld">预览</label>
-                    <div class="md-preview" id="md-output">预览区域…</div>
-                </div>
-            </div>
+            <div class="desc">实时渲染 Markdown（marked 本地优先，离线可用）</div>
+            <textarea class="form-control" id="md-input" rows="6" placeholder="# 标题&#10;**加粗** 与 `代码`" oninput="mdPreview()"></textarea>
+            <div class="md-preview mt-2" id="md-output"></div>
         </div>
-    </section>
+    </div>
 
     <!-- 8. 年会抽奖 -->
-    <section class="panel" id="panel-lucky">
+    <div class="panel" id="panel-lucky">
         <div class="panel-card">
             <h2>年会抽奖</h2>
-            <div class="desc">支持奖项分级（一等奖/二等奖…）、滚动抽签、中奖去重与音效；名单可粘贴文本或 CSV/Excel 整列。</div>
-
-            <label class="fld">参与者名单（每行/逗号/顿号分隔一人；也可直接粘贴 CSV/Excel 一列姓名）</label>
-            <textarea class="form-control" id="lucky-input" rows="4" placeholder="张三&#10;李四&#10;王五"></textarea>
-
-            <!-- 奖项分级配置 -->
-            <label class="fld mt-3 mb-1">奖项分级设置</label>
-            <div id="lucky-awards"></div>
-            <button class="btn-ghost mt-1" onclick="luckyAddAward()"><i class="bi bi-plus-lg me-1"></i>添加奖项</button>
-
-            <div class="row align-items-end mt-3">
+            <div class="desc">支持去重、奖项分级、滚动动画与音效</div>
+            <textarea class="form-control" id="lucky-input" rows="3" placeholder="每行一个名字，或用逗号、空格分隔"></textarea>
+            <div class="row g-2 align-items-end mb-2">
                 <div class="col-auto">
-                    <label class="fld">单个奖项动画时长(秒)</label>
-                    <input type="number" class="form-control" id="lucky-duration" value="3" min="1" max="10" style="width:130px;">
+                    <label class="fld">滚动时长(秒)</label>
+                    <input type="number" class="form-control" id="lucky-duration" value="3" style="width:110px">
                 </div>
                 <div class="col-auto">
-                    <div class="form-check mt-2">
-                        <input class="form-check-input" type="checkbox" id="lucky-allow-repeat">
-                        <label class="form-check-label" for="lucky-allow-repeat">允许重复中奖</label>
-                    </div>
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="lucky-allow-repeat"><label class="form-check-label" for="lucky-allow-repeat">允许重复中奖</label></div>
                 </div>
                 <div class="col-auto">
-                    <div class="form-check mt-2">
-                        <input class="form-check-input" type="checkbox" id="lucky-sound" checked>
-                        <label class="form-check-label" for="lucky-sound">中奖音效</label>
-                    </div>
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="lucky-sound" checked><label class="form-check-label" for="lucky-sound">开奖音效</label></div>
                 </div>
             </div>
-
+            <div class="lucky-stage" id="lucky-stage"><span class="lucky-placeholder">点击「开始抽奖」揭晓幸运儿</span></div>
             <div class="btn-row">
-                <button class="btn-primary-custom" id="lucky-btn" onclick="luckyDraw()"><i class="bi bi-play-fill me-1"></i>开始抽奖</button>
-                <button class="btn-ghost" id="lucky-reset" onclick="luckyReset()"><i class="bi bi-arrow-counterclockwise me-1"></i>重置名单</button>
-                <button class="btn-ghost" onclick="copyLuckyResult()"><i class="bi bi-clipboard me-1"></i>复制中奖名单</button>
+                <button class="btn-primary-custom" onclick="luckyDraw()">开始抽奖</button>
+                <button class="btn-ghost" onclick="luckyReset()">重置</button>
+                <button class="btn-ghost" onclick="copyLuckyResult()"><i class="ti ti-copy"></i> 复制名单</button>
             </div>
-
-            <!-- 滚动展示区 -->
-            <div class="lucky-stage" id="lucky-stage">
-                <span class="lucky-placeholder">点击「开始抽奖」揭晓幸运儿</span>
+            <div class="award-config mt-2">
+                <div class="fw-semibold mb-1">奖项分级</div>
+                <div id="lucky-awards"></div>
+                <button class="btn-ghost mt-1" onclick="luckyAddAward()">+ 添加奖项</button>
             </div>
-
-            <label class="fld mt-3 mb-1">中奖名单（按奖项分级）</label>
-            <div class="result-box" id="lucky-result" style="min-height:60px;">暂无</div>
+            <div class="mt-2"><div class="fw-semibold mb-1">中奖名单</div><div id="lucky-result">暂无</div></div>
         </div>
-    </section>
+    </div>
+
+    <!-- 9. 二维码生成 -->
+    <div class="panel" id="panel-qrcode">
+        <div class="panel-card">
+            <h2>二维码生成</h2>
+            <div class="desc">文本 / 链接 / WiFi 一键生成，可下载</div>
+            <input type="text" class="form-control" id="qr-input" placeholder="输入内容…">
+            <div class="btn-row">
+                <button class="btn-primary-custom" onclick="genQR()">生成</button>
+                <button class="btn-ghost" onclick="downloadQR()">下载 PNG</button>
+            </div>
+            <div class="qr-canvas-wrap"><canvas id="qr-canvas" width="220" height="220"></canvas></div>
+        </div>
+    </div>
+
+    <!-- 10. 工作日计算 -->
+    <div class="panel" id="panel-workday">
+        <div class="panel-card">
+            <h2>工作日计算</h2>
+            <div class="desc">计算区间内自然日 / 工作日 / 周末天数</div>
+            <div class="row g-2">
+                <div class="col"><label class="fld">开始日期</label><input type="date" class="form-control" id="wd-start"></div>
+                <div class="col"><label class="fld">结束日期</label><input type="date" class="form-control" id="wd-end"></div>
+            </div>
+            <div class="btn-row"><button class="btn-primary-custom" onclick="calcWorkday()">计算</button></div>
+            <div class="stat-grid">
+                <div class="stat-item"><div class="num" id="wd-total">0</div><div class="lbl">自然日</div></div>
+                <div class="stat-item"><div class="num" id="wd-work">0</div><div class="lbl">工作日</div></div>
+                <div class="stat-item"><div class="num" id="wd-weekend">0</div><div class="lbl">周末</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 11. 贷款月供计算器 -->
+    <div class="panel" id="panel-loan">
+        <div class="panel-card">
+            <h2>贷款月供计算器</h2>
+            <div class="desc">等额本息 / 等额本金对比，支持多次提前还款模拟</div>
+            <div class="row g-2">
+                <div class="col"><label class="fld">贷款本金(元)</label><input type="number" class="form-control" id="loan-principal" value="1000000"></div>
+                <div class="col"><label class="fld">年利率(%)</label><input type="number" step="0.01" class="form-control" id="loan-rate" value="4.2"></div>
+                <div class="col"><label class="fld">期限(月)</label><input type="number" class="form-control" id="loan-months" value="360"></div>
+                <div class="col"><label class="fld">还款方式</label>
+                    <select class="form-control" id="loan-type">
+                        <option value="equal">等额本息</option>
+                        <option value="principal">等额本金</option>
+                    </select>
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn-primary-custom" onclick="calcLoan()">计算</button>
+                <button class="btn-ghost" onclick="exportLoanCSV()">导出明细 CSV</button>
+            </div>
+            <table class="loan-table">
+                <thead><tr><th>对比项</th><th>等额本息</th><th>等额本金</th></tr></thead>
+                <tbody>
+                    <tr><td>首月月供</td><td class="num" id="loan-ep-first">-</td><td class="num" id="loan-pp-first">-</td></tr>
+                    <tr><td>每月月供</td><td class="num" id="loan-ep-fixed">-</td><td class="num">递减</td></tr>
+                    <tr><td>支付利息</td><td class="num" id="loan-ep-interest">-</td><td class="num" id="loan-pp-interest">-</td></tr>
+                    <tr><td>还款总额</td><td class="num" id="loan-ep-total">-</td><td class="num" id="loan-pp-total">-</td></tr>
+                </tbody>
+            </table>
+            <div class="loan-detail-wrap mt-2">
+                <table class="loan-table" id="loan-detail">
+                    <thead><tr><th>期数</th><th>月供</th><th>本金</th><th>利息</th><th>剩余本金</th></tr></thead>
+                    <tbody><tr><td colspan="5" class="text-muted">点击「计算」后显示</td></tr></tbody>
+                </table>
+            </div>
+            <hr>
+            <div class="fw-semibold mb-1">提前还款模拟（可多次叠加）</div>
+            <div class="loan-prepay">
+                <div class="fld-group"><label class="fld">第几期后</label><input type="number" class="form-control" id="prepay-after" value="12"></div>
+                <div class="fld-group"><label class="fld">提前还款额(元)</label><input type="number" class="form-control" id="prepay-amount" value="200000"></div>
+                <div class="fld-group"><label class="fld">方式</label>
+                    <select class="form-control" id="prepay-mode">
+                        <option value="term">缩短期限</option>
+                        <option value="amount">减少月供</option>
+                    </select>
+                </div>
+                <div class="fld-group"><button class="btn-primary-custom" onclick="simulatePrepay()">叠加模拟</button></div>
+                <div class="fld-group"><button class="btn-ghost" onclick="resetPrepay()">清空模拟</button></div>
+            </div>
+            <div class="prepay-hint" id="prepay-hint"></div>
+            <div id="prepay-result"></div>
+        </div>
+    </div>
+
+    <!-- 12. 简易记账 -->
+    <div class="panel" id="panel-ledger">
+        <div class="panel-card">
+            <h2>简易记账</h2>
+            <div class="desc">本地保存，支持类别、月份筛选、CSV 导出</div>
+            <div class="ledger-form">
+                <div class="fld-group">
+                    <label class="fld">类型</label>
+                    <select class="form-control" id="lg-type">
+                        <option value="out">支出</option>
+                        <option value="in">收入</option>
+                    </select>
+                </div>
+                <div class="fld-group">
+                    <label class="fld">类别</label>
+                    <select class="form-control" id="lg-cat-select">
+                        <option>餐饮</option><option>交通</option><option>购物</option>
+                        <option>居住</option><option>娱乐</option><option>医疗</option>
+                        <option>工资</option><option>其他</option>
+                    </select>
+                </div>
+                <div class="fld-group">
+                    <label class="fld">金额</label>
+                    <input type="number" class="form-control" id="lg-amount" placeholder="0.00">
+                </div>
+                <div class="fld-group">
+                    <label class="fld">备注</label>
+                    <input type="text" class="form-control" id="lg-note" placeholder="可选">
+                </div>
+                <div class="fld-group"><button class="btn-primary-custom" onclick="addLedger()">添加</button></div>
+                <div class="fld-group"><button class="btn-ghost" onclick="exportLedgerCSV()">导出 CSV</button></div>
+                <div class="fld-group"><button class="btn-ghost" onclick="clearLedger()">清空</button></div>
+            </div>
+            <div class="mt-2">
+                <label class="fld">月份筛选</label>
+                <select class="form-control" id="lg-month-filter" onchange="filterLedgerByMonth()" style="max-width:220px">
+                    <option value="">全部月份</option>
+                </select>
+            </div>
+            <ul class="ledger-list" id="lg-list"></ul>
+            <div class="ledger-summary">
+                <div class="stat-item"><div class="num" id="lg-in">¥0.00</div><div class="lbl">总收入</div></div>
+                <div class="stat-item"><div class="num" id="lg-out">¥0.00</div><div class="lbl">总支出</div></div>
+                <div class="stat-item"><div class="num" id="lg-bal">¥0.00</div><div class="lbl">结余</div></div>
+            </div>
+            <!-- 本次新增：支出类别环形图（SVG） -->
+            <div class="ledger-chart" id="lg-chart"></div>
+            <div class="ledger-cat-summary" id="lg-cat"></div>
+            <div class="ledger-month-summary" id="lg-month"></div>
+        </div>
+    </div>
+
+    <!-- 13. 数据图表（纯前端零依赖 SVG 可视化） -->
+    <div class="panel" id="panel-chart">
+        <div class="panel-card">
+            <h2>数据图表</h2>
+            <div class="desc">粘贴「标签,数值」或 CSV，一键生成柱状 / 折线 / 饼图（纯前端，数据不出本机）</div>
+            <textarea class="form-control" id="chart-input" rows="6" placeholder="北京,320&#10;上海,280&#10;广州,210&#10;深圳,190"></textarea>
+            <div class="row g-2 align-items-end mb-2">
+                <div class="col">
+                    <label class="fld">图表类型</label>
+                    <select class="form-control" id="chart-type">
+                        <option value="bar">柱状图</option>
+                        <option value="line">折线图</option>
+                        <option value="pie">饼图</option>
+                        <option value="donut">环形图</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="chart-percent" checked><label class="form-check-label" for="chart-percent">显示百分比（饼/环）</label></div>
+                </div>
+                <div class="col-auto">
+                    <button class="btn-primary-custom" onclick="renderChart()">生成图表</button>
+                </div>
+                <div class="col-auto">
+                    <button class="btn-ghost" onclick="downloadChartSVG()">下载 SVG</button>
+                </div>
+            </div>
+            <div class="chart-wrap" id="chart-output"><span class="text-muted">输入数据后点击「生成图表」</span></div>
+        </div>
+    </div>
 
 </div>
 
-<div class="toast-msg" id="toast"></div>
+<!-- 记账编辑模态框 -->
+<div class="modal fade" id="ledgerEditModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">编辑记录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-idx">
+                <div class="mb-2"><label class="fld">类型</label>
+                    <select class="form-control" id="edit-type">
+                        <option value="out">支出</option><option value="in">收入</option>
+                    </select></div>
+                <div class="mb-2"><label class="fld">类别</label>
+                    <select class="form-control" id="edit-cat">
+                        <option>餐饮</option><option>交通</option><option>购物</option>
+                        <option>居住</option><option>娱乐</option><option>医疗</option>
+                        <option>工资</option><option>其他</option>
+                    </select></div>
+                <div class="mb-2"><label class="fld">金额</label><input type="number" class="form-control" id="edit-amount"></div>
+                <div class="mb-2"><label class="fld">日期</label><input type="date" class="form-control" id="edit-date"></div>
+                <div class="mb-2"><label class="fld">备注</label><input type="text" class="form-control" id="edit-note"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button class="btn btn-primary" onclick="saveLedgerEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 提示气泡 -->
+<div id="toast" class="toast-msg"></div>
 {% endblock %}
 
-{# 工具页脚本：注入到 base 末尾的 extra_js 块，并引入 marked.js（Markdown 预览） #}
+{# ============ 底部脚本：引入 qrcode（本地）、marked（本地，离线可用）、assistant.js（交互逻辑） ============ #}
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
-    // ===================== 通用工具函数 =====================
-
-    // 切换工具面板
-    document.getElementById('toolNav').addEventListener('click', function (e) {
-        const btn = e.target.closest('button[data-tool]');
-        if (!btn) return;
-        document.querySelectorAll('#toolNav button').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('panel-' + btn.dataset.tool).classList.add('active');
-    });
-
-    // 复制文本到剪贴板（兼容旧浏览器）
-    function copyText(elId) {
-        const el = document.getElementById(elId);
-        const text = el.value !== undefined ? el.value : el.textContent;
-        if (!text) { showToast('没有可复制的内容'); return; }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(() => showToast('已复制到剪贴板')).catch(() => fallbackCopy(text));
-        } else {
-            fallbackCopy(text);
-        }
-    }
-    function fallbackCopy(text) {
-        const ta = document.createElement('textarea');
-        ta.value = text; document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy'); showToast('已复制到剪贴板'); }
-        catch (e) { showToast('复制失败，请手动复制'); }
-        document.body.removeChild(ta);
-    }
-
-    // 提示气泡
-    let toastTimer;
-    function showToast(msg) {
-        const t = document.getElementById('toast');
-        t.textContent = msg; t.classList.add('show');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
-    }
-
-    // UTF-8 安全的 Base64 编解码
-    function utf8ToBase64(str) {
-        return btoa(unescape(encodeURIComponent(str)));
-    }
-    function base64ToUtf8(b64) {
-        return decodeURIComponent(escape(atob(b64)));
-    }
-
-    // ===================== 1. 时间戳转换 =====================
-    function pad(n) { return n < 10 ? '0' + n : '' + n; }
-    function fmtDate(d) {
-        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
-            ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-    }
-    function tickNow() {
-        const now = new Date();
-        document.getElementById('time-now').textContent = fmtDate(now);
-        const tsSec = Math.floor(now.getTime() / 1000);
-        document.getElementById('time-now-ts').value = tsSec;
-    }
-    tickNow();
-    setInterval(tickNow, 1000);
-
-    function tsToDate() {
-        const raw = document.getElementById('ts-input').value.trim();
-        const out = document.getElementById('ts-result');
-        if (!raw) { out.textContent = '请输入时间戳'; return; }
-        const num = Number(raw);
-        if (!Number.isFinite(num)) { out.textContent = '时间戳必须为数字'; return; }
-        // 自动判定：10 位为秒，13 位为毫秒
-        let ms = num;
-        if (raw.length <= 11) ms = num * 1000;
-        const d = new Date(ms);
-        if (isNaN(d.getTime())) { out.textContent = '时间戳超出有效范围'; return; }
-        out.textContent = fmtDate(d) + '  （' + d.toISOString() + '）';
-    }
-
-    // ===================== 2. 字数统计 =====================
-    function countWords() {
-        const text = document.getElementById('count-input').value;
-        const chars = text.length;
-        const noSpace = text.replace(/\s/g, '').length;
-        const lines = text === '' ? 0 : text.split(/\n/).length;
-        // 英文按空格分词，中文逐字计
-        const enWords = (text.match(/[A-Za-z0-9]+/g) || []).length;
-        const cnChars = (text.match(/[一-龥]/g) || []).length;
-        const words = enWords + cnChars;
-        document.getElementById('stat-chars').textContent = chars;
-        document.getElementById('stat-nospace').textContent = noSpace;
-        document.getElementById('stat-words').textContent = words;
-        document.getElementById('stat-lines').textContent = lines;
-    }
-
-    // ===================== 3. JSON 格式化 =====================
-    function jsonFormat() {
-        const out = document.getElementById('json-output');
-        const raw = document.getElementById('json-input').value.trim();
-        if (!raw) { out.textContent = '请输入 JSON'; return; }
-        try {
-            const obj = JSON.parse(raw);
-            out.textContent = JSON.stringify(obj, null, 4);
-        } catch (e) {
-            out.textContent = '解析失败：' + e.message;
-        }
-    }
-    function jsonMinify() {
-        const out = document.getElementById('json-output');
-        const raw = document.getElementById('json-input').value.trim();
-        if (!raw) { out.textContent = '请输入 JSON'; return; }
-        try {
-            const obj = JSON.parse(raw);
-            out.textContent = JSON.stringify(obj);
-        } catch (e) {
-            out.textContent = '解析失败：' + e.message;
-        }
-    }
-
-    // ===================== 4. 颜色转换 =====================
-    function hexToRgb(hex) {
-        hex = hex.replace('#', '').trim();
-        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-        if (hex.length !== 6 || /[^0-9a-fA-F]/.test(hex)) return null;
-        return {
-            r: parseInt(hex.slice(0, 2), 16),
-            g: parseInt(hex.slice(2, 4), 16),
-            b: parseInt(hex.slice(4, 6), 16)
-        };
-    }
-    function rgbToHex(r, g, b) {
-        const h = x => pad2(x.toString(16));
-        return '#' + h(r) + h(g) + h(b);
-    }
-    function pad2(s) { return s.length === 1 ? '0' + s : s; }
-    function rgbToHsl(r, g, b) {
-        r /= 255; g /= 255; b /= 255;
-        const max = Math.max(r, g, b), min = Math.min(r, g, b);
-        let h, s, l = (max + min) / 2;
-        if (max === min) { h = s = 0; }
-        else {
-            const d = max - min;
-            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-            switch (max) {
-                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                case g: h = (b - r) / d + 2; break;
-                default: h = (r - g) / d + 4;
-            }
-            h /= 6;
-        }
-        return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
-    }
-    function hslToRgb(h, s, l) {
-        s /= 100; l /= 100;
-        const c = (1 - Math.abs(2 * l - 1)) * s;
-        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-        const m = l - c / 2;
-        let r = 0, g = 0, b = 0;
-        if (h < 60) { r = c; g = x; }
-        else if (h < 120) { r = x; g = c; }
-        else if (h < 180) { g = c; b = x; }
-        else if (h < 240) { g = x; b = c; }
-        else if (h < 300) { r = x; b = c; }
-        else { r = c; b = x; }
-        return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255) };
-    }
-    function updatePreview(hex) {
-        const prev = document.getElementById('color-preview');
-        prev.style.background = hex;
-        prev.textContent = hex.toUpperCase();
-    }
-    // source: 'hex'（默认）/'rgb'/'hsl' 表示用户正在编辑的输入框
-    function colorSync(source) {
-        const hexEl = document.getElementById('hex-input');
-        const rgbEl = document.getElementById('rgb-input');
-        const hslEl = document.getElementById('hsl-input');
-        if (source === 'rgb') {
-            const m = rgbEl.value.match(/(\d+)\D+(\d+)\D+(\d+)/);
-            if (!m) return;
-            const r = +m[1], g = +m[2], b = +m[3];
-            const hex = rgbToHex(r, g, b);
-            hexEl.value = hex;
-            const hsl = rgbToHsl(r, g, b);
-            hslEl.value = 'hsl(' + hsl.h + ', ' + hsl.s + '%, ' + hsl.l + '%)';
-            updatePreview(hex);
-        } else if (source === 'hsl') {
-            const m = hslEl.value.match(/(\d+)\D+(\d+)\D+(\d+)/);
-            if (!m) return;
-            const rgb = hslToRgb(+m[1], +m[2], +m[3]);
-            const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
-            hexEl.value = hex;
-            rgbEl.value = 'rgb(' + rgb.r + ', ' + rgb.g + ', ' + rgb.b + ')';
-            updatePreview(hex);
-        } else {
-            const rgb = hexToRgb(hexEl.value);
-            if (!rgb) return;
-            rgbEl.value = 'rgb(' + rgb.r + ', ' + rgb.g + ', ' + rgb.b + ')';
-            const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-            hslEl.value = 'hsl(' + hsl.h + ', ' + hsl.s + '%, ' + hsl.l + '%)';
-            updatePreview(rgbToHex(rgb.r, rgb.g, rgb.b));
-        }
-    }
-
-    // ===================== 5. 密码生成 =====================
-    function genPass() {
-        const len = +document.getElementById('pass-len').value;
-        const lower = document.getElementById('opt-lower').checked;
-        const upper = document.getElementById('opt-upper').checked;
-        const num = document.getElementById('opt-num').checked;
-        const sym = document.getElementById('opt-sym').checked;
-        const out = document.getElementById('pass-output');
-        const sets = [];
-        if (lower) sets.push('abcdefghijklmnopqrstuvwxyz');
-        if (upper) sets.push('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
-        if (num) sets.push('0123456789');
-        if (sym) sets.push('!@#$%^&*()-_=+[]{};:,.?/');
-        if (sets.length === 0) { out.textContent = '请至少选择一种字符类型'; return; }
-        const all = sets.join('');
-        // 使用加密安全随机数
-        const arr = new Uint32Array(len);
-        crypto.getRandomValues(arr);
-        let pwd = '';
-        for (let i = 0; i < len; i++) pwd += all[arr[i] % all.length];
-        out.textContent = pwd;
-        calcStrength(pwd);
-    }
-    function calcStrength(pwd) {
-        let score = 0;
-        if (pwd.length >= 8) score += 25;
-        if (pwd.length >= 16) score += 15;
-        if (/[a-z]/.test(pwd)) score += 15;
-        if (/[A-Z]/.test(pwd)) score += 15;
-        if (/\d/.test(pwd)) score += 15;
-        if (/[^A-Za-z0-9]/.test(pwd)) score += 15;
-        score = Math.min(score, 100);
-        const fill = document.getElementById('pass-strength');
-        const txt = document.getElementById('pass-strength-txt');
-        fill.style.width = score + '%';
-        if (score > 70) { fill.style.background = '#16a34a'; txt.textContent = '强度：强'; }
-        else if (score > 40) { fill.style.background = '#f59e0b'; txt.textContent = '强度：中'; }
-        else { fill.style.background = '#dc2626'; txt.textContent = '强度：弱'; }
-    }
-
-    // ===================== 6. Base64 =====================
-    function b64Encode() {
-        const raw = document.getElementById('b64-input').value;
-        const out = document.getElementById('b64-output');
-        try { out.textContent = utf8ToBase64(raw); }
-        catch (e) { out.textContent = '编码失败：' + e.message; }
-    }
-    function b64Decode() {
-        // 解码对象为结果框中的内容（即编码产物），而非原始输入框
-        const raw = document.getElementById('b64-output').textContent.trim();
-        const out = document.getElementById('b64-output');
-        if (!raw || raw === '等待操作…') {
-            out.textContent = '请先编码或粘贴 Base64 到结果框再解码';
-            return;
-        }
-        try { out.textContent = base64ToUtf8(raw); }
-        catch (e) { out.textContent = '解码失败：不是合法的 Base64 字符串'; }
-    }
-
-    // ===================== 7. Markdown 预览 =====================
-    function mdPreview() {
-        const src = document.getElementById('md-input').value;
-        const out = document.getElementById('md-output');
-        if (typeof marked !== 'undefined') {
-            out.innerHTML = marked.parse(src);
-        } else {
-            out.textContent = src;
-        }
-    }
-
-    // ===================== 8. 年会抽奖 =====================
-    // 奖项配置：[{name:'一等奖', count:1}, ...]
-    let luckyAwards = [
-        { name: '一等奖', count: 1 },
-        { name: '二等奖', count: 2 }
-    ];
-    // 各奖项已中奖名单（用于去重与分组展示）：[{award, winners:[...]}]
-    let luckyDrawnByAward = [];
-    let luckyRunning = false;   // 是否正在抽奖（防重复点击）
-    let luckyTimer = null;      // 滚动动画定时器
-    let luckyAudioCtx = null;   // Web Audio 上下文（懒加载）
-
-    // 渲染奖项配置行
-    function renderAwardRows() {
-        const box = document.getElementById('lucky-awards');
-        box.innerHTML = '';
-        luckyAwards.forEach((a, i) => {
-            const row = document.createElement('div');
-            row.className = 'award-row';
-            row.innerHTML =
-                '<div class="award-name"><input type="text" class="form-control" value="' + a.name + '" onchange="luckyAwards[' + i + '].name=this.value"></div>' +
-                '<input type="number" class="form-control award-num" min="1" value="' + a.count + '" onchange="luckyAwards[' + i + '].count=Math.max(1,parseInt(this.value)||1)">' +
-                '<button class="award-del" title="删除该奖项" onclick="luckyDelAward(' + i + ')"><i class="bi bi-trash"></i></button>';
-            box.appendChild(row);
-        });
-    }
-    // 添加奖项
-    function luckyAddAward() {
-        luckyAwards.push({ name: '三等奖', count: 3 });
-        renderAwardRows();
-    }
-    // 删除奖项
-    function luckyDelAward(idx) {
-        if (luckyAwards.length <= 1) { showToast('至少保留一个奖项'); return; }
-        luckyAwards.splice(idx, 1);
-        renderAwardRows();
-    }
-
-    // 解析参与者名单：
-    // 1) 先按行拆分（CSV/Excel 粘贴通常为多行，每行一个记录）
-    // 2) 每行若含逗号/Tab，取第一个字段作为姓名（兼容"姓名,部门"等）
-    // 3) 否则按顿号/逗号/空格拆分（纯名单场景）
-    function parseLuckyNames() {
-        const raw = document.getElementById('lucky-input').value;
-        const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const names = [];
-        lines.forEach(line => {
-            // 含分隔符的表格行：取第一列
-            const firstCol = line.split(/[\t,，]/)[0].trim();
-            const candidate = firstCol || line;
-            // 仍可能是顿号/空格分隔的多个名字
-            candidate.split(/[、\s]+/).forEach(n => { if (n) names.push(n); });
-        });
-        return names;
-    }
-
-    // 播放中奖音效（使用 Web Audio API 合成短促"叮"声，无需外部音频文件）
-    function playLuckySound() {
-        if (!document.getElementById('lucky-sound').checked) return;
-        try {
-            if (!luckyAudioCtx) luckyAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const ctx = luckyAudioCtx;
-            const now = ctx.currentTime;
-            // 两个和弦音，营造颁奖感
-            [880, 1320].forEach((freq, i) => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = freq;
-                const t = now + i * 0.12;
-                gain.gain.setValueAtTime(0.0001, t);
-                gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-                osc.connect(gain).connect(ctx.destination);
-                osc.start(t);
-                osc.stop(t + 0.4);
-            });
-        } catch (e) {
-            // 音效失败不影响抽奖主流程
-            console.warn('音效播放失败:', e);
-        }
-    }
-
-    // 从池中随机不重复抽取 n 个
-    function pickRandom(pool, n) {
-        const tmp = pool.slice();
-        const res = [];
-        n = Math.min(n, tmp.length);
-        for (let i = 0; i < n; i++) {
-            const idx = Math.floor(Math.random() * tmp.length);
-            res.push(tmp.splice(idx, 1)[0]);
-        }
-        return res;
-    }
-
-    // 开始抽奖：按奖项顺序依次抽取，每个奖项独立滚动动画后定格
-    function luckyDraw() {
-        if (luckyRunning) return;
-        // 校验奖项配置
-        if (luckyAwards.length === 0) { showToast('请至少配置一个奖项'); return; }
-        const all = parseLuckyNames();
-        if (all.length === 0) { showToast('请先输入参与者名单'); return; }
-
-        const allowRepeat = document.getElementById('lucky-allow-repeat').checked;
-        const duration = Math.max(1, Math.min(10, parseInt(document.getElementById('lucky-duration').value, 10) || 3));
-        const stage = document.getElementById('lucky-stage');
-        const btn = document.getElementById('lucky-btn');
-        const resetBtn = document.getElementById('lucky-reset');
-        btn.disabled = true; resetBtn.disabled = true;
-        luckyRunning = true;
-
-        // 当前可抽取池（排除历史已中奖者，除非允许重复）
-        let basePool = allowRepeat ? all.slice() : all.filter(n => !luckyDrawnByAward.some(g => g.winners.includes(n)));
-        // 本轮回合内已抽中的名字（保证跨奖项也不重复）
-        let roundDrawn = [];
-
-        // 逐个奖项抽取（异步串行）
-        let ai = 0;
-        const drawOneAward = () => {
-            if (ai >= luckyAwards.length) {
-                // 全部完成
-                luckyRunning = false;
-                btn.disabled = false; resetBtn.disabled = false;
-                renderLuckyResult();
-                showToast('🎉 全部奖项抽取完成');
-                return;
-            }
-            const award = luckyAwards[ai];
-            // 池子排除：历史同奖项已中奖 + 本回合已抽中（跨奖项去重）
-            let pool = basePool.filter(n => {
-                const g = luckyDrawnByAward.find(x => x.award === award.name);
-                const inSameAward = g ? g.winners.includes(n) : false;
-                const inRound = roundDrawn.includes(n);
-                return !inSameAward && !inRound;
-            });
-            if (pool.length === 0) {
-                showToast('「' + award.name + '」已无可抽人员，请重置或允许重复');
-                ai++;
-                drawOneAward();
-                return;
-            }
-            const want = Math.min(Math.max(1, award.count), pool.length);
-
-            // 滚动动画
-            const tick = () => {
-                stage.innerHTML = '<span class="award-badge">' + award.name + '</span>';
-                const sample = pickRandom(pool, want);
-                sample.forEach(w => {
-                    const span = document.createElement('span');
-                    span.className = 'lucky-name';
-                    span.textContent = w;
-                    stage.appendChild(span);
-                });
-            };
-            tick();
-            luckyTimer = setInterval(tick, 80);
-
-            setTimeout(() => {
-                clearInterval(luckyTimer);
-                luckyTimer = null;
-                const winners = pickRandom(pool, want);
-                stage.innerHTML = '<span class="award-badge">' + award.name + '</span>';
-                winners.forEach(w => {
-                    const span = document.createElement('span');
-                    span.className = 'lucky-name win';
-                    span.textContent = w;
-                    stage.appendChild(span);
-                });
-                // 记录到分组名单（去重累积）
-                let g = luckyDrawnByAward.find(x => x.award === award.name);
-                if (!g) { g = { award: award.name, winners: [] }; luckyDrawnByAward.push(g); }
-                winners.forEach(w => {
-                    if (!g.winners.includes(w)) g.winners.push(w);
-                    if (!roundDrawn.includes(w)) roundDrawn.push(w);  // 跨奖项去重
-                });
-                playLuckySound();
-                showToast('🎉 ' + award.name + '：' + winners.join('、'));
-                ai++;
-                // 间隔 0.6s 再抽下一个奖项，体验更自然
-                setTimeout(drawOneAward, 600);
-            }, duration * 1000);
-        };
-        drawOneAward();
-    }
-
-    // 渲染中奖名单（按奖项分级分组）
-    function renderLuckyResult() {
-        const box = document.getElementById('lucky-result');
-        if (luckyDrawnByAward.length === 0) { box.textContent = '暂无'; return; }
-        box.innerHTML = luckyDrawnByAward.map(g => {
-            const chips = g.winners.map(w => '<span class="win-item">' + w + '</span>').join('');
-            return '<div class="award-group"><div class="award-title">' + g.award + '（' + g.winners.length + '人）</div>' + chips + '</div>';
-        }).join('');
-    }
-
-    // 复制中奖名单（按奖项文本格式）
-    function copyLuckyResult() {
-        if (luckyDrawnByAward.length === 0) { showToast('暂无中奖名单'); return; }
-        const text = luckyDrawnByAward.map(g => g.award + '：' + g.winners.join('、')).join('\n');
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(() => showToast('已复制中奖名单')).catch(() => fallbackCopy(text));
-        } else { fallbackCopy(text); }
-    }
-
-    // 重置名单（清空已中奖记录）
-    function luckyReset() {
-        luckyDrawnByAward = [];
-        document.getElementById('lucky-stage').innerHTML = '<span class="lucky-placeholder">点击「开始抽奖」揭晓幸运儿</span>';
-        renderLuckyResult();
-        showToast('名单已重置');
-    }
-
-    // 初始化：颜色预览与 Markdown 默认态
-    colorSync();
-    mdPreview();
-    renderAwardRows();   // 渲染奖项分级配置行
-</script>
+<script src="{% static 'js/qrcode.min.js' %}"></script>
+<script src="{% static 'js/marked.min.js' %}"></script>
+<script src="{% static 'js/assistant.js' %}"></script>
 {% endblock %}

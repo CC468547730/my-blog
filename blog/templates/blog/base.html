@@ -12,6 +12,64 @@
     <link rel="icon" type="image/png" href="{% static 'img/logo.png' %}?v=2">
     <link rel="shortcut icon" type="image/png" href="{% static 'img/logo.png' %}?v=2">
     <link rel="apple-touch-icon" href="{% static 'img/logo.png' %}?v=2">
+    <!-- 暗色模式：在渲染前应用，避免闪烁（与工具箱共用 localStorage 键 office_tool_theme） -->
+    <script>
+        // 全局主题管理函数，供全站（含工具箱 assistant.js）统一调用，避免重复实现
+        window.setTheme = function (theme) {
+            var t = (theme === 'dark' || theme === 'light') ? theme : 'light';
+            document.documentElement.setAttribute('data-theme', t);
+            try { localStorage.setItem('office_tool_theme', t); } catch (e) {}
+        };
+        (function () {
+            var t = null;
+            try { t = localStorage.getItem('office_tool_theme'); } catch (e) {}
+            if (!t) { t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'; }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <!-- 全站暗色模式样式（覆盖博客外壳，不影响 vuexy 原始文件） -->
+    <style>
+        :root {
+            --blog-bg: #ffffff;
+            --blog-text: #1f2430;
+            --blog-muted: #6b7280;
+            --blog-border: #e6e8f0;
+            --blog-card: #ffffff;
+            --blog-soft: #f6f7fb;
+            --blog-primary: #4f46e5;
+            --blog-primary-soft: #eef2ff;
+        }
+        [data-theme="dark"] {
+            --blog-bg: #14151d;
+            --blog-text: #e6e8f0;
+            --blog-muted: #9aa0b4;
+            --blog-border: #2c2f3f;
+            --blog-card: #1b1d29;
+            --blog-soft: #20222f;
+            --blog-primary: #818cf8;
+            --blog-primary-soft: #232544;
+        }
+        [data-theme="dark"] body { background: var(--blog-bg); color: var(--blog-text); }
+        [data-theme="dark"] .site-header { background: var(--blog-card); border-color: var(--blog-border); }
+        [data-theme="dark"] .site-header .nav-link-item,
+        [data-theme="dark"] .site-header .site-logo { color: var(--blog-text); }
+        [data-theme="dark"] .site-footer { background: var(--blog-card); color: var(--blog-muted); border-color: var(--blog-border); }
+        [data-theme="dark"] .main-container { background: transparent; }
+        [data-theme="dark"] .content-col .article-card,
+        [data-theme="dark"] .sidebar-col .widget,
+        [data-theme="dark"] .content-col .panel-card { background: var(--blog-card); color: var(--blog-text); border-color: var(--blog-border); }
+        [data-theme="dark"] .content-col h1, [data-theme="dark"] .content-col h2,
+        [data-theme="dark"] .content-col h3, [data-theme="dark"] .content-col h4 { color: var(--blog-text); }
+        [data-theme="dark"] .sidebar-col .widget-title,
+        [data-theme="dark"] .content-col .article-title a { color: var(--blog-text); }
+        [data-theme="dark"] .content-col .article-meta, [data-theme="dark"] .sidebar-col .widget a { color: var(--blog-muted); }
+        [data-theme="dark"] .content-col a { color: var(--blog-primary); }
+        [data-theme="dark"] .codehilite, [data-theme="dark"] pre { background: #1f2430 !important; color: #e5e7eb; }
+        [data-theme="dark"] .form-control, [data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select {
+            background: #14151d; color: var(--blog-text); border-color: var(--blog-border);
+        }
+        [data-theme="dark"] .btn-outline-secondary { color: var(--blog-text); border-color: var(--blog-border); }
+    </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>

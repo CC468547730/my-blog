@@ -36,11 +36,11 @@ echo "==> [2/7] 安装 Docker Engine 与 Docker Compose 插件"
 # 若已安装则跳过
 if ! command -v docker >/dev/null 2>&1; then
     install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    chmod a+r /etc/apt/keyrings/docker.gpg
-    DISTRO=$(. /etc/os-release && echo "$ID")
+    # 使用腾讯云镜像源（国内可用，避免 download.docker.com 被重置）
+    curl -fsSL https://mirrors.cloud.tencent.com/docker-ce/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
     CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${DISTRO} ${CODENAME} stable" > /etc/apt/sources.list.d/docker.list
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://mirrors.cloud.tencent.com/docker-ce/linux/ubuntu ${CODENAME} stable" > /etc/apt/sources.list.d/docker.list
     apt-get update -y
     apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     systemctl enable --now docker
@@ -76,46 +76,57 @@ SECRET_KEY=${RANDOM_SECRET}
 DEBUG=False
 ALLOWED_HOSTS=localhost,127.0.0.1,${DOMAIN},www.${DOMAIN}
 
-# PostgreSQL 数据库配置（数据库服务与 web 服务共用）
+# PostgreSQL 数据库配置（采用宿主机原生 PostgreSQL，不依赖 Docker 镜像，
+# 因服务器网络无法访问 Docker Hub 拉取 postgres 镜像）
+# host.docker.internal 通过 compose 的 extra_hosts 映射到宿主机网关，
+# 使 web 容器能访问宿主机上的 PostgreSQL 服务
 DB_NAME=myblog
 DB_USER=myblog_user
 DB_PASSWORD=MyBlog_Passw0rd
-DATABASE_URL=postgresql://myblog_user:MyBlog_Passw0rd@db:5432/myblog
+DATABASE_URL=postgresql://myblog_user:MyBlog_Passw0rd@host.docker.internal:5432/myblog
 EOF
 chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}"
 echo "    已生成 .env，ALLOWED_HOSTS 已预填 ${DOMAIN}"
 
-echo "==> [5.5/7] 写入 docker-compose.yml（镜像来自 GHCR，由 CI 推送）"
+echo "==> [5.5/7] 安装宿主机原生 PostgreSQL 并初始化数据库"
+# 采用腾讯云内网 apt 源（已验证可用），避免访问 Docker Hub 拉取 postgres 镜像
+if ! command -v psql >/dev/null 2>&1; then
+    apt-get install -y postgresql postgresql-contrib
+fi
+systemctl enable --now postgresql
+PGVER=$(ls /etc/postgresql/)
+# 若数据库/用户不存在则创建（幂等，重跑脚本不报错）
+sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='myblog_user'" | grep -q 1 || \
+    sudo -u postgres psql -c "CREATE USER myblog_user WITH PASSWORD 'MyBlog_Passw0rd';"
+sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='myblog'" | grep -q 1 || \
+    sudo -u postgres psql -c "CREATE DATABASE myblog OWNER myblog_user;"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE myblog TO myblog_user;"
+# 配置 pg_hba.conf 允许 127.0.0.1 / ::1 的 TCP md5 连接（Django 经 host.docker.internal 以 TCP 连入）
+HBA=/etc/postgresql/$PGVER/main/pg_hba.conf
+sed -i 's/^host.*all.*all.*127.0.0.1\/32.*trust/host    all    all    127.0.0.1\/32    md5/' "$HBA"
+sed -i 's/^host.*all.*all.*::1\/128.*trust/host    all    all    ::1\/128    md5/' "$HBA"
+# 兜底：若上一步未命中（原本是 peer/scram），强制追加 TCP md5 规则（去重）
+grep -q "127.0.0.1/32    md5" "$HBA" || echo "host    all    all    127.0.0.1/32    md5" >> "$HBA"
+grep -q "::1/128    md5" "$HBA" || echo "host    all    all    ::1/128    md5" >> "$HBA"
+systemctl restart postgresql
+# 验证 TCP 连接可用
+PGPASSWORD='MyBlog_Passw0rd' psql -h 127.0.0.1 -U myblog_user -d myblog -c "SELECT 1;" >/dev/null 2>&1 \
+    && echo "    PostgreSQL TCP 连接验证成功" \
+    || echo "    [警告] PostgreSQL TCP 连接验证失败，请检查 pg_hba.conf"
+chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}"
+echo "    已安装并初始化 PostgreSQL（库:myblog / 用户:myblog_user）"
+
+echo "==> [5.6/7] 写入 docker-compose.yml（镜像来自 GHCR，由 CI 推送）"
 # 说明：CD 部署脚本执行 `docker compose pull && up`，
 # 因此服务器上必须存在 docker-compose.yml 与 .env 才能拉起容器。
 # 镜像由 GitHub Actions 构建并推送至 ghcr.io，无需在服务器本地 build。
+# 注意：数据库采用宿主机 PostgreSQL（非容器），故 compose 中不含 db 服务，
+# web 服务通过 extra_hosts 的 host.docker.internal 访问宿主机 5432 端口。
 cat > "${PROJECT_DIR}/docker-compose.yml" <<COMPOSE_EOF
 services:
-  # PostgreSQL 数据库服务（数据持久化到 ./data/postgres）
-  db:
-    image: postgres:16-alpine
-    container_name: my-blog-db
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: "\${DB_NAME}"
-      POSTGRES_USER: "\${DB_USER}"
-      POSTGRES_PASSWORD: "\${DB_PASSWORD}"
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \${DB_USER} -d \${DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
   web:
     image: ghcr.io/cc468547730/my-blog:latest
     container_name: my-blog
-    depends_on:
-      db:
-        condition: service_healthy
     ports:
       - "8000:8000"
     env_file:
@@ -128,6 +139,9 @@ services:
     volumes:
       - ./data/staticfiles:/app/staticfiles
       - ./data/media:/app/media
+    # 让容器可通过 host.docker.internal 访问宿主机服务（PostgreSQL 等）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000')"]
@@ -137,14 +151,14 @@ services:
       start_period: 20s
 COMPOSE_EOF
 chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}"
-echo "    已写入 docker-compose.yml（镜像源 ghcr.io/cc468547730/my-blog:latest）"
+echo "    已写入 docker-compose.yml（镜像源 ghcr.io/cc468547730/my-blog:latest，数据库走宿主机）"
 
-echo "==> [5.6/7] 预创建 data/ 持久化目录（PostgreSQL / 静态文件 / 上传文件）"
+echo "==> [5.7/7] 预创建 data/ 持久化目录（静态文件 / 上传文件）"
 # 这些目录会被 docker-compose.yml 挂载到容器内，提前创建避免首次启动权限/缺失问题
-install -d -m 755 "${PROJECT_DIR}/data/postgres" "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
-# PostgreSQL 数据由 postgres 容器初始化，此处仅创建空目录占位（无需 SQLite 占位文件）
+# 注意：PostgreSQL 已改为宿主机原生安装，不再需要 data/postgres 目录
+install -d -m 755 "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
 chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}/data"
-echo "    已创建 data/{postgres,staticfiles,media} 持久化目录"
+echo "    已创建 data/{staticfiles,media} 持久化目录"
 
 echo "==> [6/7] 安装 Nginx 并写入站点配置（反向代理到 Django 容器）"
 apt-get install -y nginx
