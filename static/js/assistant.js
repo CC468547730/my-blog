@@ -304,6 +304,7 @@ let lotteryTimer = null;
 let winners = [];           // 已抽出名单（用于去重）
 let awardWinners = {};      // 按奖项索引存储的中奖者：{ 0: ['甲'], 1: ['乙','丙'], ... }
 let drawnNames = new Set(); // 全局已中奖人集合（不允许跨奖项重复）
+let isDrawing = false;      // 抽奖动画锁，防止快速重复点击导致超编/重复
 let awardConfig = [         // 奖项分级配置
     { name: '一等奖', count: 1 },
     { name: '二等奖', count: 2 },
@@ -362,7 +363,25 @@ function renderLuckyResult() {
     });
     resultBox.innerHTML = html || '暂无';
 }
+// 设置「开始抽奖」按钮的禁用状态与显示文字
+function setDrawButton(disabled) {
+    const btn = document.getElementById('lucky-draw-btn');
+    if (!btn) return;
+    btn.disabled = disabled;
+    if (disabled) {
+        btn.classList.add('disabled');
+        btn.innerText = '抽奖中...';
+    } else {
+        btn.classList.remove('disabled');
+        btn.innerText = '开始抽奖';
+    }
+}
 function luckyDraw() {
+    // 防止快速重复点击导致多个抽奖流程并行，进而超编或重复
+    if (isDrawing) {
+        showToast('正在抽奖中，请稍候');
+        return;
+    }
     const names = parseNames(document.getElementById('lucky-input').value);
     const allowRepeat = document.getElementById('lucky-allow-repeat').checked;
     const stage = document.getElementById('lucky-stage');
@@ -380,6 +399,8 @@ function luckyDraw() {
         showToast('所有奖项已抽满');
         return;
     }
+    isDrawing = true;
+    setDrawButton(true);
     let i = 0;
     if (lotteryTimer) clearInterval(lotteryTimer);
     lotteryTimer = setInterval(() => {
@@ -389,6 +410,7 @@ function luckyDraw() {
     const duration = parseInt(document.getElementById('lucky-duration').value, 10) || 3;
     setTimeout(() => {
         clearInterval(lotteryTimer);
+        lotteryTimer = null;
         const winner = pool[Math.floor(Math.random() * pool.length)];
         stage.innerHTML = '<span class="lucky-name win">' + winner + '</span>';
         // 将中奖者归入对应奖项，并加入全局已中奖集合
@@ -398,11 +420,16 @@ function luckyDraw() {
         // 兼容旧逻辑：仍向 winners 追加，便于其他可能依赖 winners 的代码
         winners.push(winner);
         renderLuckyResult();
+        isDrawing = false;
+        setDrawButton(false);
         if (document.getElementById('lucky-sound').checked) playSound();
     }, duration * 1000);
 }
 function luckyReset() {
     if (lotteryTimer) clearInterval(lotteryTimer);
+    lotteryTimer = null;
+    isDrawing = false;
+    setDrawButton(false);
     winners = [];
     awardWinners = {};
     drawnNames = new Set();
