@@ -160,13 +160,19 @@ install -d -m 755 "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
 chown -R "${DEPLOY_USER}:" "${PROJECT_DIR}/data"
 echo "    已创建 data/{staticfiles,media} 持久化目录"
 
-# 修复 Nginx(www-data) 访问静态文件权限：
+# 修复 Nginx(www-data) 访问静态文件权限（最小权限原则）：
 # /home/deploy 默认权限为 750(drwxr-x---)，其他用户(含 www-data)无 traverse 权限，
 # 会导致 Nginx 的 location /static/ 与 /media/ 全部返回 403 Forbidden。
-# 给部署根目录链加上 o+x，使 www-data 可进入并读取静态/上传文件（不改变属主）。
-chmod 755 "$(dirname "${PROJECT_DIR}")"
-chmod -R 755 "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
-echo "    已修复静态/上传目录遍历权限（避免 Nginx 403）"
+# 精细做法：将 www-data 加入 deploy 组，并仅对 data/ 链赋予组可读可执行(g+rx)，
+# 既不需把家目录改成 755(避免暴露)，也不需开放 o+x，符合最小权限原则。
+usermod -aG "${DEPLOY_USER}" www-data 2>/dev/null || true
+# 确保 data/ 链各层对组有 rx 权限，使 www-data(deploy 组成员) 可 traverse 进入
+chmod 750 "$(dirname "${PROJECT_DIR}")"   # 保持家目录 750，仅属主可进
+chmod 750 "${PROJECT_DIR}"                # 仅属主/组可进
+chmod 750 "${PROJECT_DIR}/data"
+chmod -R 750 "${PROJECT_DIR}/data/staticfiles" "${PROJECT_DIR}/data/media"
+chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "${PROJECT_DIR}/data"
+echo "    已通过组授权(www-data 加入 deploy 组)修复静态/上传目录访问权限（避免 Nginx 403，不暴露家目录）"
 
 echo "==> [6/7] 安装 Nginx 并写入站点配置（反向代理到 Django 容器）"
 apt-get install -y nginx
