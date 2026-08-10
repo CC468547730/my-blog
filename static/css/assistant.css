@@ -50,9 +50,34 @@
 }
 .tool-page-head .badge-ico {
     width: 38px; height: 38px; border-radius: 10px;
-    background: linear-gradient(120deg, #4f46e5 0%, #7c3aed 100%);
+    background: #fff;
     color: #fff; display: flex; align-items: center; justify-content: center;
     font-size: 20px;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+    /* 浮动 + 脉冲光晕动态效果 */
+    animation: floatIco 3s ease-in-out infinite, pulseIco 2.5s ease-in-out infinite;
+    transition: box-shadow .3s ease, transform .3s ease;
+}
+.tool-page-head .badge-ico .logo-ico {
+    width: 26px; height: 26px; object-fit: contain; border-radius: 6px;
+    transition: transform .35s cubic-bezier(.34, 1.56, .64, 1), filter .35s ease;
+    will-change: transform;
+}
+.tool-page-head .badge-ico:hover {
+    box-shadow: 0 6px 18px rgba(79, 70, 229, 0.28);
+}
+.tool-page-head .badge-ico:hover .logo-ico {
+    transform: scale(1.25) rotate(10deg);
+    filter: drop-shadow(0 0 8px rgba(79, 70, 229, .55));
+}
+@keyframes floatIco {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+@keyframes pulseIco {
+    0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.35); }
+    70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
 }
 .tool-page-head h1 { font-size: 20px; margin: 0; font-weight: 600; }
 .tool-page-head .sub { color: var(--dash-muted); font-size: 12.5px; margin-top: 2px; }
