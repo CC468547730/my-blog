@@ -62,6 +62,15 @@ a:hover { color: var(--cnb-primary-dark); }
     flex: 0 0 auto;
     vertical-align: middle;
     margin-right: 8px;
+    /* 鼠标悬停时 logo 上下浮动 */
+    transition: transform .3s ease;
+}
+.site-logo:hover .logo-img {
+    animation: logoFloat 1.2s ease-in-out infinite;
+}
+@keyframes logoFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
 }
 
 .main-links { gap: 4px; }
