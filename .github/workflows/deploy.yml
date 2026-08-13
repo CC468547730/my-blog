@@ -74,9 +74,21 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
+            # 校验上传的 tar 包确实存在，避免解压空文件/不存在文件导致静默失败
+            if [ ! -f deploy.tar.gz ]; then
+              echo "错误：未找到 deploy.tar.gz，SCP 上传可能失败"
+              exit 1
+            fi
             echo "==> 解压最新代码"
             tar -xzf deploy.tar.gz
             rm -f deploy.tar.gz
+            # 校验关键文件已更新为本地 build 版本
+            if ! grep -q "build: \." docker-compose.yml; then
+              echo "错误：docker-compose.yml 未包含本地 build 配置，解压可能未覆盖"
+              exit 1
+            fi
+            echo "==> 停止旧容器（避免镜像重建冲突）"
+            docker compose -f docker-compose.yml down || true
             echo "==> 本地构建镜像（绕过 GHCR 拉取超时）"
             docker compose -f docker-compose.yml build --no-cache
             echo "==> 启动容器"
