@@ -1,17 +1,18 @@
 services:
-  # 采用「CI 构建镜像 → 推送阿里云 ACR → 服务器 pull 运行」模式，
-  # 因此此处只声明 image（来自 ACR），不写 build（避免服务器本地构建）。
-  # 改用 ACR 原因：GHCR 在国内服务器拉取经常超时（Run Command Timeout），ACR 为国内节点更稳定。
+  # 采用「CI 构建镜像 → 推送腾讯云 TCR → 服务器 pull 运行」模式，
+  # 因此此处只声明 image（来自 TCR），不写 build（避免服务器本地构建）。
+  # 改用腾讯云 TCR 原因：服务器本身是腾讯云，同厂商内网/公网拉取最稳最快，
+  # 规避 GHCR 在国内服务器拉取超时（Run Command Timeout）的问题。
   # SECRET_KEY / ALLOWED_HOSTS / DATABASE_URL 等变量由同目录 .env 文件注入（env_file）。
   #
   # 网络说明：使用 host 网络模式（network_mode: host），容器直接共享宿主机网络栈。
   # 这样容器内 127.0.0.1:5432 即宿主 PostgreSQL、127.0.0.1:8000 即 Gunicorn，
   # 彻底规避 Docker 网桥路由/防火墙导致的容器→宿主机连通问题（已生产验证）。
   # 注意：host 模式下 ports 映射与 extra_hosts 均不生效，已移除。
-  # 镜像地址占位符：registry.cn-hangzhou.aliyuncs.com/<命名空间>/my-blog
-  # 请将 ACR_REGISTRY / ACR_NAMESPACE 替换为你自己的阿里云 ACR 实际值。
+  # 镜像地址占位符：ccr.ccs.tencentyun.com/<命名空间>/my-blog
+  # 请将 TCR_NAMESPACE 替换为你自己在腾讯云 TCR 控制台创建的命名空间。
   web:
-    image: ${ACR_REGISTRY:-registry.cn-hangzhou.aliyuncs.com}/${ACR_NAMESPACE:-cc468547730}/my-blog:latest
+    image: ccr.ccs.tencentyun.com/${TCR_NAMESPACE:-cc468547730}/my-blog:latest
     container_name: my-blog
     # 共享宿主机网络，容器内 localhost 即宿主机服务
     network_mode: "host"
