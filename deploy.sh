@@ -59,14 +59,10 @@ else
 fi
 grep -E '^SECRET_KEY=|^DEBUG=|^ALLOWED_HOSTS=' .env
 
-# ---------------------- 更新代码并构建启动 ----------------------
-echo "==> [3/7] 更新代码并本地构建镜像（entrypoint 自动 migrate + collectstatic）"
-if [ ! -d .git ]; then
-  git init
-  git remote add origin https://github.com/CC468547730/my-blog.git
-fi
-git fetch origin
-git reset --hard origin/main
+# ---------------------- 构建并启动 ----------------------
+# 本地构建模式：代码应已存在于服务器（CI 通过 SCP 上传，或手动上传）。
+# 不再从 GitHub/GHCR 拉取，规避境外网络不稳定导致的超时。
+echo "==> [3/7] 本地构建镜像并启动容器（entrypoint 自动 migrate + collectstatic）"
 docker compose --env-file .env build --no-cache
 docker compose --env-file .env up -d
 docker compose ps

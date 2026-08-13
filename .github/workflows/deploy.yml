@@ -40,6 +40,21 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      # 服务器无法稳定访问 GitHub HTTPS / GHCR，因此由 CI 打包代码通过 SSH 上传，
+      # 服务器只负责本地 docker compose build + up，不再从外部拉取代码/镜像。
+      - name: 打包代码
+        run: |
+          tar -czf /tmp/deploy.tar.gz --exclude='.git' --exclude='data' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='node_modules' .
+
+      - name: 上传代码到服务器
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "/tmp/deploy.tar.gz"
+          target: ${{ secrets.DEPLOY_PATH }}
+
       - name: 远程部署
         uses: appleboy/ssh-action@v1
         with:
@@ -50,13 +65,9 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
-            echo "==> 确保本地是 git 仓库并更新到 origin/main"
-            if [ ! -d .git ]; then
-              git init
-              git remote add origin https://github.com/CC468547730/my-blog.git
-            fi
-            git fetch origin
-            git reset --hard origin/main
+            echo "==> 解压最新代码"
+            tar -xzf deploy.tar.gz
+            rm -f deploy.tar.gz
             echo "==> 本地构建镜像（绕过 GHCR 拉取超时）"
             docker compose -f docker-compose.yml build --no-cache
             echo "==> 启动容器"
