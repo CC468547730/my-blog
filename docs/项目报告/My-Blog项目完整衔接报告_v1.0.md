@@ -118,6 +118,11 @@ My-Blog/
 - **样式**：`assistant.css` 新增 `.progress` / `.progress-bar` / `.result-msg` 三类样式（成功绿、失败红）。
 - **错误 JSON 化（2026-08-13 第二轮）**：后端失败分支统一返回 `application/json` 的 `{'success': false, 'message': '...'}`（HTTP 状态码保持 400/422/500）；成功分支仍为 `.docx` 二进制流下载（不包 JSON，避免下载破坏）。前端 `xhr.onload` 优先按 JSON 解析 `message`，回退纯文本。
 - **图片型 PDF 优雅降级（2026-08-13 第二轮）**：若整篇 PDF 提取不到任何文字/表格（`has_content=False`），返回 `422 JSON` 明确提示"疑似图片型（扫描件）PDF，暂不支持 OCR"，不引入 OCR 重依赖（Poppler/Tesseract 系统库或 paddleocr/easyocr 大模型），保持部署轻量。
+- **上传界面优化 + 宽度修复（2026-08-13 第三轮）**：
+  - 上传区从原生 `<input type="file">` 改为 `.pdf-dropzone`（拖拽/点击/键盘 a11y）+ `.pdf-file-card`（已选文件预览卡片，含移除按钮）+ `.pdf-action-row`（独立操作行）。
+  - 面板位置修复：将 `#panel-pdfword` 移入 `.tool-wrapper` 内部（受 `max-width: 880px` 约束），解决与各工具面板宽度不一致问题。
+  - 涉及文件：`blog/templates/blog/assistant.html`、`static/js/assistant.js`、`static/css/assistant.css`；无新增 URL、无数据库迁移。
+  - 详见：`docs/项目报告/PDF转Word上传界面优化开发报告_v1.1.md`。
 
 ---
 
@@ -135,6 +140,7 @@ My-Blog/
 
 - [x] 助理页 PDF 转 Word 已完成：前端进度条 / 错误提示交互（ajax 上传 + 实时进度）。
 - [x] PDF 转 Word 表格还原已完成（`pdfplumber.extract_tables()` → `docx` 表格）。
+- [x] PDF 转 Word 上传界面优化 + 宽度修复已完成（拖拽区 + 文件卡片 + 面板移入 tool-wrapper，详见 v1.1 报告）。
 - [ ] 评论审核可考虑异步通知（Celery，当前项目未启用）。
 - [ ] 文章支持 Markdown，可补充目录生成、代码复制按钮。
 - [ ] CI/CD 工作流已配置但未实际运行，建议接入仓库触发验证。

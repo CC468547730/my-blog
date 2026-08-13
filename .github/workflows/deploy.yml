@@ -72,9 +72,15 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 30m
           script: |
+            set -e
             cd ${{ secrets.DEPLOY_PATH }}
+            echo "==> 登录 GHCR"
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -f docker-compose.yml pull
+            echo "==> 拉取最新镜像（国内网络可能较慢，请耐心等待）"
+            time docker compose -f docker-compose.yml pull
+            echo "==> 重启容器"
             docker compose -f docker-compose.yml up -d --remove-orphans
-            docker image prune -af
+            echo "==> 清理旧镜像"
+            docker image prune -af || true
