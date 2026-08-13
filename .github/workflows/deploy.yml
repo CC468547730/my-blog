@@ -45,7 +45,7 @@ jobs:
       # 注意：scp-action 的 source 必须是 workspace 内相对路径，不能是 /tmp 绝对路径。
       - name: 打包代码（输出到 workspace 内）
         run: |
-          tar -czf deploy.tar.gz --exclude='.git' --exclude='data' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='node_modules' .
+          tar -czf deploy.tar.gz --exclude='.git' --exclude='data' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='node_modules' --exclude='deploy.tar.gz' .
 
       - name: 上传代码到服务器
         uses: appleboy/scp-action@v0.1.7
