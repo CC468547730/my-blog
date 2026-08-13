@@ -3,7 +3,7 @@
 # My-Blog 服务器一键部署脚本（Docker Compose 模式）
 # 适用环境：已装 Docker + 宿主 PostgreSQL + Nginx 的 Linux 服务器
 # 网络模式：host（容器直连宿主 127.0.0.1:5432 的 PostgreSQL）
-# 镜像来源：GHCR ghcr.io/cc468547730/my-blog:latest
+# 镜像来源：服务器本地 build（my-blog:local），规避 GHCR 拉取超时
 # 约定项目目录：/home/ubuntu/my-blog（与 myblog.nginx.conf 的 alias 一致）
 # 说明：本脚本不在本地执行，仅上传到服务器后运行；不提交任何密钥。
 # ============================================================
@@ -59,9 +59,10 @@ else
 fi
 grep -E '^SECRET_KEY=|^DEBUG=|^ALLOWED_HOSTS=' .env
 
-# ---------------------- 拉取并启动 ----------------------
-echo "==> [3/7] 拉取最新镜像并启动容器（entrypoint 自动 migrate + collectstatic）"
-docker compose --env-file .env pull
+# ---------------------- 构建并启动 ----------------------
+echo "==> [3/7] 拉取最新代码并本地构建镜像（entrypoint 自动 migrate + collectstatic）"
+git pull origin main || true
+docker compose --env-file .env build --no-cache
 docker compose --env-file .env up -d
 docker compose ps
 

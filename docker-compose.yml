@@ -1,6 +1,7 @@
 services:
-  # 采用「CI 构建镜像 → 推送 GHCR → 服务器 pull 运行」模式，
-  # 因此此处只声明 image（来自 GHCR），不写 build（避免服务器本地构建）。
+  # 采用「服务器本地构建镜像 → 直接启动」模式。
+  # 原因：GHCR 到该腾讯云服务器网络极不稳定，docker pull 经常卡在 fs layer 导致超时。
+  # 改为本地 build 后，完全绕过 GHCR 拉取，利用服务器本地代码和 Dockerfile 构建镜像。
   # SECRET_KEY / ALLOWED_HOSTS / DATABASE_URL 等变量由同目录 .env 文件注入（env_file）。
   #
   # 网络说明：使用 host 网络模式（network_mode: host），容器直接共享宿主机网络栈。
@@ -8,7 +9,8 @@ services:
   # 彻底规避 Docker 网桥路由/防火墙导致的容器→宿主机连通问题（已生产验证）。
   # 注意：host 模式下 ports 映射与 extra_hosts 均不生效，已移除。
   web:
-    image: ghcr.io/cc468547730/my-blog:latest
+    build: .
+    image: my-blog:local
     container_name: my-blog
     # 共享宿主机网络，容器内 localhost 即宿主机服务
     network_mode: "host"

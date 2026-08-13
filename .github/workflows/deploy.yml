@@ -76,11 +76,11 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
-            echo "==> 登录 GHCR"
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            echo "==> 拉取最新镜像（如超时请服务器手动 docker pull 后重跑）"
-            time docker compose -f docker-compose.yml pull
-            echo "==> 重启容器"
+            echo "==> 拉取最新代码"
+            git pull origin main
+            echo "==> 本地构建镜像（绕过 GHCR 拉取超时）"
+            docker compose -f docker-compose.yml build --no-cache
+            echo "==> 启动容器"
             docker compose -f docker-compose.yml up -d --remove-orphans
             echo "==> 清理旧镜像"
             docker image prune -af || true
