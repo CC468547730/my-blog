@@ -436,6 +436,208 @@ function luckyReset() {
     document.getElementById('lucky-stage').innerHTML = '<span class="lucky-placeholder">点击「开始抽奖」揭晓幸运儿</span>';
     document.getElementById('lucky-result').innerHTML = '暂无';
 }
+
+// ===================== 9. PDF 转 Word（拖拽上传 + ajax 进度条 + 自动下载） =====================
+// 关键设计：
+//   - 拖拽区/点击均触发隐藏 file input，选中后展示文件卡片（文件名/大小/移除）
+//   - 前端预校验扩展名与体积（与后端 20MB 限制一致），先行拦截友好提示
+//   - 使用 XMLHttpRequest 以获得 upload.onprogress 真实上传进度
+//   - 从表单隐藏域读取 CSRF 令牌（Django Session 认证必须携带）
+//   - 成功：response.blob() 生成下载链接触发浏览器下载
+//   - 失败：后端返回的结构化 JSON 错误信息写入 #pdfWordMsg 容器
+(function bindPdfToWord() {
+    const form = document.getElementById('pdfWordForm');
+    if (!form) return; // 未登录或面板不存在时直接跳过（匿名态无表单）
+
+    const fileInput = document.getElementById('pdfWordFile');
+    const btn = document.getElementById('pdfWordBtn');
+    const progressBox = document.getElementById('pdfWordProgress');
+    const bar = document.getElementById('pdfWordBar');
+    const msg = document.getElementById('pdfWordMsg');
+    const dropzone = document.getElementById('pdfWordDropzone');
+    const fileCard = document.getElementById('pdfWordFileCard');
+    const fileNameEl = document.getElementById('pdfWordFileName');
+    const fileMetaEl = document.getElementById('pdfWordFileMeta');
+    const removeBtn = document.getElementById('pdfWordRemoveBtn');
+
+    // 与后端一致的体积上限（20MB）与允许扩展名
+    const MAX_SIZE = 20 * 1024 * 1024;
+    const ALLOWED_EXT = '.pdf';
+
+    // 字节数格式化为可读大小
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+    }
+
+    // 校验文件合法性，返回错误文案（空字符串表示通过）
+    function validate(file) {
+        if (!file) return '请选择要转换的 PDF 文件';
+        if (!file.name.toLowerCase().endsWith(ALLOWED_EXT)) return '仅支持 PDF 文件';
+        if (file.size > MAX_SIZE) return '文件超过 20MB 限制';
+        return '';
+    }
+
+    // 渲染已选文件卡片并解锁转换按钮
+    function renderFile(file) {
+        fileNameEl.textContent = file.name;
+        fileMetaEl.textContent = formatSize(file.size) + ' · PDF 文档';
+        fileCard.style.display = 'flex';
+        dropzone.classList.add('has-file');
+        btn.disabled = false;
+    }
+
+    // 清空选择，恢复初始态
+    function clearFile() {
+        fileInput.value = '';
+        fileCard.style.display = 'none';
+        dropzone.classList.remove('has-file');
+        btn.disabled = true;
+        msg.textContent = '';
+        msg.className = 'result-msg';
+    }
+
+    // 统一处理选中的文件（点击或拖拽），含校验提示
+    function handlePicked(file) {
+        const err = validate(file);
+        if (err) {
+            msg.textContent = err;
+            msg.className = 'result-msg error';
+            clearFile();
+            return;
+        }
+        msg.textContent = '';
+        msg.className = 'result-msg';
+        renderFile(file);
+    }
+
+    // 点击拖拽区 => 触发隐藏 file input
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    // 键盘可达性：Enter / 空格 触发选择（无障碍）
+    dropzone.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+    // 拖拽悬停高亮
+    dropzone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', function () {
+        dropzone.classList.remove('dragover');
+    });
+    // 拖拽松手：取第一个文件
+    dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        const f = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) handlePicked(f);
+    });
+    // file input 变化（点击选择）
+    fileInput.addEventListener('change', function () {
+        const f = fileInput.files && fileInput.files[0];
+        if (f) handlePicked(f);
+    });
+    // 移除按钮：清空选择（阻止冒泡避免再次触发 file input）
+    removeBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        clearFile();
+    });
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault(); // 阻止整页提交，改为 ajax
+
+        // 1. 基础前端校验
+        const file = fileInput.files[0];
+        const err = validate(file);
+        if (err) {
+            msg.textContent = err;
+            msg.className = 'result-msg error';
+            return;
+        }
+
+        // 2. 准备 FormData 与 CSRF 令牌
+        const formData = new FormData();
+        formData.append('pdf_file', file);
+        const csrf = form.querySelector('[name="csrfmiddlewaretoken"]');
+        if (csrf) formData.append('csrfmiddlewaretoken', csrf.value);
+
+        // 3. 重置 UI 状态
+        msg.textContent = '';
+        msg.className = 'result-msg';
+        btn.disabled = true;
+        btn.innerText = '转换中...';
+        dropzone.classList.add('uploading');
+        progressBox.style.display = 'block';
+        bar.style.width = '0%';
+
+        // 4. 使用 XMLHttpRequest 以监听上传进度
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.getAttribute('action'), true);
+
+        // 4.1 上传进度
+        xhr.upload.onprogress = function (ev) {
+            if (ev.lengthComputable) {
+                const pct = Math.round((ev.loaded / ev.total) * 100);
+                bar.style.width = pct + '%';
+            }
+        };
+
+        // 4.2 响应完成
+        xhr.onload = function () {
+            btn.disabled = false;
+            btn.innerText = '转换并下载';
+            progressBox.style.display = 'none';
+            dropzone.classList.remove('uploading');
+
+            if (xhr.status === 200) {
+                // 成功：将返回内容作为 .docx 下载（优先从 Content-Disposition 取真实文件名）
+                const blob = xhr.response;
+                const cd = xhr.getResponseHeader('Content-Disposition') || '';
+                const m = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i);
+                const fname = m ? decodeURIComponent(m[1]) : 'converted.docx';
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fname;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                msg.textContent = '转换完成，已开始下载：' + fname;
+                msg.className = 'result-msg success';
+            } else {
+                // 失败：优先按 JSON 解析后端结构化错误信息，回退纯文本
+                let text = '转换失败，请稍后重试';
+                try {
+                    const ct = xhr.getResponseHeader('Content-Type') || '';
+                    if (ct.indexOf('application/json') !== -1) {
+                        const data = JSON.parse(xhr.responseText);
+                        text = (data && data.message) ? data.message : text;
+                    } else {
+                        text = xhr.responseText || text;
+                    }
+                } catch (e) {}
+                msg.textContent = text;
+                msg.className = 'result-msg error';
+            }
+        };
+
+        // 4.3 网络/请求异常
+        xhr.onerror = function () {
+            btn.disabled = false;
+            btn.innerText = '转换并下载';
+            progressBox.style.display = 'none';
+            dropzone.classList.remove('uploading');
+            msg.textContent = '网络异常，上传失败';
+            msg.className = 'result-msg error';
+        };
+
+        // 4.4 必须设置 responseType 为 blob，否则下载内容会损坏
+        xhr.responseType = 'blob';
+        xhr.send(formData);
+    });
+})();
 function copyLuckyResult() {
     const txt = document.getElementById('lucky-result').innerText;
     if (!txt || txt === '暂无') { showToast('暂无可复制的中奖名单'); return; }

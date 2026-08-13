@@ -355,3 +355,78 @@ textarea:focus, input:focus, select:focus { border-color: var(--dash-primary); b
 @media (max-width: 640px) {
     .theme-toggle-btn { margin-left: 0; flex: 0 0 auto; }
 }
+
+/* ===== 13. PDF 转 Word（进度条 + 结果提示） ===== */
+/* 上传进度条容器 */
+.progress {
+    width: 100%; height: 8px; border-radius: 999px;
+    background: #e5e7eb; overflow: hidden; margin: 12px 0 6px;
+}
+.progress-bar {
+    height: 100%; width: 0;
+    background: linear-gradient(90deg, #4f46e5, #7c3aed);
+    border-radius: 999px; transition: width .2s ease;
+}
+/* 结果提示：区分成功/失败状态 */
+.result-msg { font-size: 13.5px; margin-top: 8px; min-height: 18px; }
+.result-msg.success { color: #166534; }
+.result-msg.error { color: #dc2626; }
+.result-msg:empty { display: none; }
+
+/* ===== 13.1 PDF 转 Word 拖拽上传区（优化版上传界面） ===== */
+/* 拖拽区：可点击 / 可拖入，弱化边框，悬停与拖入时高亮 */
+.pdf-dropzone {
+    border: 2px dashed var(--dash-border);
+    border-radius: 14px;
+    background: var(--dash-bg-soft);
+    padding: 28px 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s, box-shadow .2s;
+    outline: none;
+}
+.pdf-dropzone:hover,
+.pdf-dropzone:focus-visible { border-color: var(--dash-primary); background: var(--dash-primary-soft); }
+.pdf-dropzone.dragover {
+    border-color: var(--dash-primary);
+    background: var(--dash-primary-soft);
+    box-shadow: 0 0 0 4px rgba(79,70,229,.14) inset;
+}
+.pdf-dropzone.uploading { opacity: .75; cursor: progress; }
+.pdf-dropzone-inner { display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.dropzone-ico { font-size: 34px; color: var(--dash-primary); }
+.dropzone-title { font-size: 14.5px; color: var(--dash-text); font-weight: 500; }
+.dropzone-link { color: var(--dash-primary); text-decoration: underline; }
+.dropzone-sub { font-size: 12px; color: var(--dash-muted); }
+
+/* 已选文件卡片：展示文件名 / 大小 + 移除按钮 */
+.pdf-file-card {
+    display: none; align-items: center; gap: 12px;
+    margin-top: 12px; padding: 12px 14px;
+    border: 1px solid var(--dash-border); border-radius: 12px;
+    background: var(--dash-card);
+}
+.pdf-file-card .file-card-ico { font-size: 26px; color: var(--dash-primary); flex-shrink: 0; }
+.pdf-file-card .file-card-info { flex: 1; min-width: 0; }
+.pdf-file-card .file-card-name {
+    font-size: 14px; font-weight: 600; color: var(--dash-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pdf-file-card .file-card-meta { font-size: 12px; color: var(--dash-muted); margin-top: 2px; }
+.pdf-file-card .file-card-remove {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px;
+    border: none; background: #fee2e2; color: #dc2626; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    transition: background .18s;
+}
+.pdf-file-card .file-card-remove:hover { background: #fecaca; }
+
+/* 操作行：转换按钮单独一行，选择文件前禁用 */
+.pdf-action-row { margin-top: 12px; }
+
+/* 暗色模式适配：拖拽区使用软底色 */
+[data-theme="dark"] .pdf-dropzone { background: #20222f; }
+[data-theme="dark"] .pdf-dropzone:hover,
+[data-theme="dark"] .pdf-dropzone:focus-visible,
+[data-theme="dark"] .pdf-dropzone.dragover { background: var(--dash-primary-soft); }
+[data-theme="dark"] .pdf-file-card { background: var(--dash-card); }

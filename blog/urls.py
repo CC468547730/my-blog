@@ -9,6 +9,8 @@ urlpatterns = [
     path('', views.ArticleListView.as_view(), name='article_list'),
     # 助理：品牌专属通道（暂未开放）
     path('assistant/', views.assistant_view, name='assistant'),
+    # 助理工具：PDF 转 Word（需登录，POST 上传，即时返回 .docx）
+    path('assistant/pdf-to-word/', views.pdf_to_word_view, name='pdf_to_word'),
     # 发布文章（需登录）
     path('article/new/', views.ArticleCreateView.as_view(), name='article_create'),
     # 文章详情

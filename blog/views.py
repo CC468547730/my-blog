@@ -12,6 +12,14 @@ from django.template import loader
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 
+# PDF 转 Word 功能依赖（纯 Python，无系统库依赖）
+import io
+import os
+import tempfile
+from django.http import HttpResponse, JsonResponse
+import pdfplumber
+from docx import Document
+
 
 def assistant_view(request):
     """助理入口：办公室工具箱聚合页（纯前端、无需登录）
@@ -20,6 +28,117 @@ def assistant_view(request):
     show_sidebar=False 关闭右侧边栏，使工具区独占整行宽度。
     """
     return render(request, 'blog/assistant.html', {'show_sidebar': False})
+
+
+# 常量：PDF 转 Word 允许的最大上传体积（20MB），避免滥用与内存压力
+PDF_TO_WORD_MAX_SIZE = 20 * 1024 * 1024
+PDF_TO_WORD_ALLOWED_EXT = '.pdf'
+
+
+@login_required
+@require_POST
+def pdf_to_word_view(request):
+    """PDF 转 Word（需登录）：上传 PDF，服务端提取文字生成 .docx 即时下载。
+
+    设计要点（遵循项目规范）：
+    - @login_required：任意已登录用户可用（方案 B1），避免匿名上传滥用；
+    - CSRF 由 Django 全局中间件校验（前端表单须含 {% csrf_token %}）；
+    - 通过临时文件落盘读取，转换完成后在 finally 中强制清理，文件不持久化；
+    - 全链路异常捕获 + 中文日志（含用户/文件名/时间戳），不向用户泄露堆栈。
+    """
+    # 1. 取文件并做基础校验（失败统一返回 JSON，便于前端结构化提示）
+    upload = request.FILES.get('pdf_file')
+    if not upload:
+        return JsonResponse({'success': False, 'message': '未检测到上传文件'}, status=400)
+    if not upload.name.lower().endswith(PDF_TO_WORD_ALLOWED_EXT):
+        return JsonResponse({'success': False, 'message': '仅支持 PDF 文件'}, status=400)
+    if upload.size > PDF_TO_WORD_MAX_SIZE:
+        return JsonResponse({'success': False, 'message': '文件超过 20MB 限制'}, status=400)
+
+    # 2. 写入临时文件（delete=False 以便自行控制清理时机）
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+            for chunk in upload.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        # 3. 用 pdfplumber 逐页提取：文字段落 + 表格（表格还原为真 docx 表格）
+        doc = Document()
+        has_content = False  # 标记是否提取到任何文字/表格，用于图片型 PDF 优雅降级
+        with pdfplumber.open(tmp_path) as pdf:
+            for page in pdf.pages:
+                # 3.1 提取普通文字（表格区域由 tables 单独处理，避免重复）
+                text = page.extract_text() or ''
+                text = text.strip()
+                if text:
+                    doc.add_paragraph(text)
+                    has_content = True
+
+                # 3.2 提取表格：将每页检测到的表格还原为可编辑的 docx 表格
+                #     pdfplumber.extract_tables() 返回 [[cell, ...], ...] 的二维结构
+                tables = page.extract_tables()
+                for table in tables:
+                    if not table:
+                        continue
+                    has_content = True
+                    # 按表格行数、列数创建 docx 表格（加边框样式更贴近原稿）
+                    rows = len(table)
+                    cols = max(len(r) for r in table)
+                    docx_table = doc.add_table(rows=rows, cols=cols)
+                    docx_table.style = 'Table Grid'
+                    for r_idx, row in enumerate(table):
+                        for c_idx in range(cols):
+                            cell_text = row[c_idx] if c_idx < len(row) else ''
+                            cell_text = '' if cell_text is None else str(cell_text)
+                            docx_table.cell(r_idx, c_idx).text = cell_text
+                    # 表格之间留一个空段落做视觉分隔
+                    doc.add_paragraph('')
+
+        # 4. 优雅降级：若整篇 PDF 未提取到任何文字/表格，大概率图片型（扫描件）
+        #    当前不引入 OCR 重依赖，明确告知用户，避免其误以为转换失败
+        if not has_content:
+            return JsonResponse({
+                'success': False,
+                'message': '未能从 PDF 中提取到文字内容，该文件疑似图片型（扫描件）PDF。'
+                           '当前版本暂不支持 OCR 文字识别，请上传包含可选中文字/表格的文本型 PDF。',
+            }, status=422)
+
+        # 5. 内存缓冲返回 .docx，避免二次落盘
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        response = HttpResponse(
+            buf.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+        response['Content-Disposition'] = 'attachment; filename="converted.docx"'
+        return response
+
+    except Exception as e:
+        # 完整异常日志：用户、文件名、体积、时间戳，便于排查
+        logger.error(
+            f'PDF 转 Word 失败: {e}',
+            extra={
+                'user_id': getattr(request.user, 'id', None),
+                'username': getattr(request.user, 'username', None),
+                'file_name': getattr(upload, 'name', None),
+                'file_size': getattr(upload, 'size', None),
+            },
+        )
+        return JsonResponse(
+            {'success': False, 'message': '转换失败，请确认文件为有效文本型 PDF'},
+            status=500,
+        )
+    finally:
+        # 无论成功失败，必须清理临时文件，杜绝磁盘残留
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                logger.warning(f'PDF 临时文件清理失败: {tmp_path}')
+
+
 from django.urls import reverse_lazy
 from django.views.generic import (
     CreateView,

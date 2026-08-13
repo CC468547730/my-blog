@@ -40,6 +40,7 @@
         <button data-tool="loan"><i class="ti ti-coin"></i>贷款月供</button>
         <button data-tool="ledger"><i class="ti ti-wallet"></i>简易记账</button>
         <button data-tool="chart" data-alias="数据可视化 图表 柱状图 折线图 饼图 环形图 统计"><i class="ti ti-chart-bar"></i>数据图表</button>
+        <button data-tool="pdfword" data-alias="PDF 转 Word 文档转换 格式转换"><i class="ti ti-file-text"></i>PDF转Word</button>
         <!-- 暗色模式切换：复用 base.html 的 window.setTheme，避免重复实现；点击在亮/暗之间切换 -->
         <button id="themeToggle" class="theme-toggle-btn" type="button" onclick="toggleTheme()" title="切换亮色 / 暗色">
             <i class="bi bi-moon-stars"></i><span id="themeLabel">暗色</span>
@@ -375,10 +376,54 @@
         </div>
     </div>
 
+    <!-- PDF 转 Word：需登录，服务端转换，文件不留存（位于 tool-wrapper 内，与其他面板同宽） -->
+    <div class="panel" id="panel-pdfword">
+        <div class="panel-card">
+            <h2>PDF 转 Word</h2>
+            <div class="desc">登录后上传文本型 PDF（含表格亦可还原为可编辑表格），服务端提取文字生成 .docx（文件不留存，仅支持文本型 PDF）</div>
+            {% if request.user.is_authenticated %}
+            <form method="post" action="{% url 'blog:pdf_to_word' %}" enctype="multipart/form-data" id="pdfWordForm">
+                {% csrf_token %}
+                <!-- 拖拽上传区：点击或拖拽均可选择文件；原生 input 隐藏但保留，供表单提交与无障碍访问 -->
+                <div class="pdf-dropzone" id="pdfWordDropzone" tabindex="0" role="button" aria-label="点击或拖拽 PDF 文件到此处上传">
+                    <input type="file" name="pdf_file" id="pdfWordFile" accept=".pdf" hidden>
+                    <div class="pdf-dropzone-inner">
+                        <i class="ti ti-file-type-pdf dropzone-ico"></i>
+                        <div class="dropzone-title">拖拽 PDF 到此处，或 <span class="dropzone-link">点击选择文件</span></div>
+                        <div class="dropzone-sub">仅支持文本型 PDF · 单文件最大 20MB · 转换后立即删除，不留存</div>
+                    </div>
+                </div>
+                <!-- 已选文件卡片：选择文件后显示，含文件名/大小/移除 -->
+                <div class="pdf-file-card" id="pdfWordFileCard" style="display:none;">
+                    <i class="ti ti-file-text file-card-ico"></i>
+                    <div class="file-card-info">
+                        <div class="file-card-name" id="pdfWordFileName">--</div>
+                        <div class="file-card-meta" id="pdfWordFileMeta">--</div>
+                    </div>
+                    <button type="button" class="file-card-remove" id="pdfWordRemoveBtn" title="移除文件" aria-label="移除文件">
+                        <i class="ti ti-x"></i>
+                    </button>
+                </div>
+                <!-- 操作行：转换按钮（选择文件后可用） -->
+                <div class="pdf-action-row">
+                    <button class="btn-primary-custom" type="submit" id="pdfWordBtn" disabled>转换并下载</button>
+                </div>
+                <!-- 上传进度条：ajax 提交时实时显示 -->
+                <div class="progress" id="pdfWordProgress" style="display:none;">
+                    <div class="progress-bar" id="pdfWordBar" style="width:0%"></div>
+                </div>
+                <p class="hint">说明：转换在服务器端完成，文件仅在内存/临时文件中处理，转换后立即删除，不会持久化保存。支持含表格的 PDF，表格将还原为可编辑的 Word 表格。</p>
+            </form>
+            <div id="pdfWordMsg" class="result-msg"></div>
+            {% else %}
+            <p class="desc">请先 <a href="{% url 'users:login' %}">登录</a> 后使用本工具。</p>
+            {% endif %}
+        </div>
+    </div>
+
 </div>
 
 <!-- 记账编辑模态框 -->
-<div class="modal fade" id="ledgerEditModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header"><h5 class="modal-title">编辑记录</h5>
