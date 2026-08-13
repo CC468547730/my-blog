@@ -6,8 +6,11 @@ on:
     branches: [main]
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: cc468547730/my-blog
+  # 阿里云 ACR 配置（国内节点，规避 GHCR 拉取超时）
+  # ACR_REGISTRY 形如 registry.cn-hangzhou.aliyuncs.com（默认杭州，可改其他地域）
+  ACR_REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  ACR_NAMESPACE: cc468547730
+  IMAGE_NAME: my-blog
 
 jobs:
   # 第一步：快速检查（无需等待外部 CI）
@@ -36,7 +39,7 @@ jobs:
 
   # 第二步：检查通过后构建镜像并部署
   build-and-deploy:
-    name: 构建镜像 → 推送 GHCR → 部署
+    name: 构建镜像 → 推送阿里云 ACR → 部署
     runs-on: ubuntu-latest
     needs: check
 
@@ -47,13 +50,15 @@ jobs:
       - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 登录 GHCR
+      - name: 登录阿里云 ACR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
-          # 注意：需在仓库 Secrets 配置 GHCR_TOKEN（含 write:packages 权限的 PAT 或 GHCR 专用令牌）
+          registry: ${{ env.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+          # 注意：需在仓库 Secrets 配置
+          #   ACR_USERNAME  = 阿里云账号全名（如 1234567890@1234567890.com 或 RAM 子账号）
+          #   ACR_PASSWORD  = 容器镜像服务专属密码（在 ACR 控制台「访问凭证」设置，非登录密码）
 
       - name: 构建并推送镜像
         uses: docker/build-push-action@v6
@@ -61,8 +66,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -76,9 +81,9 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
-            echo "==> 登录 GHCR"
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            echo "==> 拉取最新镜像（国内网络可能较慢，请耐心等待）"
+            echo "==> 登录阿里云 ACR"
+            echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.ACR_REGISTRY }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+            echo "==> 拉取最新镜像（ACR 国内节点，速度稳定）"
             time docker compose -f docker-compose.yml pull
             echo "==> 重启容器"
             docker compose -f docker-compose.yml up -d --remove-orphans
