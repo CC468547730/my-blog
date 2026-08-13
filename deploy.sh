@@ -3,8 +3,7 @@
 # My-Blog 服务器一键部署脚本（Docker Compose 模式）
 # 适用环境：已装 Docker + 宿主 PostgreSQL + Nginx 的 Linux 服务器
 # 网络模式：host（容器直连宿主 127.0.0.1:5432 的 PostgreSQL）
-# 镜像来源：腾讯云 TCR（ccr.ccs.tencentyun.com，服务器同为腾讯云，拉取最稳）
-# 镜像地址由 docker-compose.yml 的 image 字段决定（支持 TCR_NAMESPACE 变量覆盖）
+# 镜像来源：GHCR ghcr.io/cc468547730/my-blog:latest
 # 约定项目目录：/home/ubuntu/my-blog（与 myblog.nginx.conf 的 alias 一致）
 # 说明：本脚本不在本地执行，仅上传到服务器后运行；不提交任何密钥。
 # ============================================================

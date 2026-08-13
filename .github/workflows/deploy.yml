@@ -6,11 +6,8 @@ on:
     branches: [main]
 
 env:
-  # 腾讯云 TCR 配置（服务器同为腾讯云，同厂商拉取最稳最快，规避 GHCR 超时）
-  # TCR_REGISTRY 为腾讯云容器镜像服务公网域名（个人版/标准版通用）
-  TCR_REGISTRY: ccr.ccs.tencentyun.com
-  TCR_NAMESPACE: cc468547730
-  IMAGE_NAME: my-blog
+  REGISTRY: ghcr.io
+  IMAGE_NAME: cc468547730/my-blog
 
 jobs:
   # 第一步：快速检查（无需等待外部 CI）
@@ -39,7 +36,7 @@ jobs:
 
   # 第二步：检查通过后构建镜像并部署
   build-and-deploy:
-    name: 构建镜像 → 推送腾讯云 TCR → 部署
+    name: 构建镜像 → 推送 GHCR → 部署
     runs-on: ubuntu-latest
     needs: check
 
@@ -50,16 +47,13 @@ jobs:
       - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 登录腾讯云 TCR
+      - name: 登录 GHCR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.TCR_REGISTRY }}
-          username: ${{ secrets.TCR_USERNAME }}
-          password: ${{ secrets.TCR_PASSWORD }}
-          # 注意：需在仓库 Secrets 配置
-          #   TCR_USERNAME  = 腾讯云账号 ID（如 100012345678）或子账号（最佳：CAM 子账号，仅授予 TCR 权限）
-          #   TCR_PASSWORD  = 腾讯云「访问管理 CAM」中该账号的《容器镜像服务》登录密码
-          #                     （在 TCR 控制台「镜像仓库 → 我的镜像 → 右侧「快捷指令」里有 docker login 命令可复制）
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+          # 注意：需在仓库 Secrets 配置 GHCR_TOKEN（含 write:packages 权限的 PAT 或 GHCR 专用令牌）
 
       - name: 构建并推送镜像
         uses: docker/build-push-action@v6
@@ -67,8 +61,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -82,9 +76,9 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
-            echo "==> 登录腾讯云 TCR"
-            echo "${{ secrets.TCR_PASSWORD }}" | docker login ${{ env.TCR_REGISTRY }} -u ${{ secrets.TCR_USERNAME }} --password-stdin
-            echo "==> 拉取最新镜像（TCR 同厂商，速度稳定）"
+            echo "==> 登录 GHCR"
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "==> 拉取最新镜像（如超时请服务器手动 docker pull 后重跑）"
             time docker compose -f docker-compose.yml pull
             echo "==> 重启容器"
             docker compose -f docker-compose.yml up -d --remove-orphans
