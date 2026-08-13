@@ -59,9 +59,14 @@ else
 fi
 grep -E '^SECRET_KEY=|^DEBUG=|^ALLOWED_HOSTS=' .env
 
-# ---------------------- 构建并启动 ----------------------
-echo "==> [3/7] 拉取最新代码并本地构建镜像（entrypoint 自动 migrate + collectstatic）"
-git pull origin main || true
+# ---------------------- 更新代码并构建启动 ----------------------
+echo "==> [3/7] 更新代码并本地构建镜像（entrypoint 自动 migrate + collectstatic）"
+if [ ! -d .git ]; then
+  git init
+  git remote add origin https://github.com/CC468547730/my-blog.git
+fi
+git fetch origin
+git reset --hard origin/main
 docker compose --env-file .env build --no-cache
 docker compose --env-file .env up -d
 docker compose ps
