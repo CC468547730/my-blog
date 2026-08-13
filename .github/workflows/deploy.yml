@@ -43,9 +43,12 @@ jobs:
       # 服务器无法稳定访问 GitHub HTTPS / GHCR，因此由 CI 打包代码通过 SSH 上传，
       # 服务器只负责本地 docker compose build + up，不再从外部拉取代码/镜像。
       # 注意：scp-action 的 source 必须是 workspace 内相对路径，不能是 /tmp 绝对路径。
-      - name: 打包代码（输出到 workspace 内）
+      - name: 打包代码（输出到临时子目录，避免 tar 自包含冲突）
         run: |
-          tar -czf deploy.tar.gz --exclude='.git' --exclude='data' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='node_modules' --exclude='deploy.tar.gz' .
+          mkdir -p .deploy_tmp
+          tar -czf .deploy_tmp/deploy.tar.gz --exclude='.git' --exclude='data' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='node_modules' --exclude='.deploy_tmp' .
+          mv .deploy_tmp/deploy.tar.gz deploy.tar.gz
+          rm -rf .deploy_tmp
 
       - name: 上传代码到服务器
         uses: appleboy/scp-action@v0.1.7
