@@ -1,19 +1,25 @@
+# ============================================================
+#  My-Blog 两容器分离部署：nginx + django_web（均为 Docker 容器）
+#  网络：自定义网桥 my_nginx_net，容器间通过容器名互访
+#  存储：django_web 与 nginx 均 bind 挂载宿主 /home/deploy/my-blog/data
+#        目录下的 staticfiles/media（nginx 直出静态，django_web 写入）
+#        db.sqlite3 同样 bind 挂载，保证 SQLite 持久化
+#  数据库：SQLite（不注入 DATABASE_URL，Django 自动回退）
+#  镜像：服务器本地 build（my-blog:local / my-blog-nginx:local）
+#  端口：仅 nginx 容器映射宿主 80:80；django_web 不暴露宿主端口
+#  说明：宿主原 nginx 已由特权容器停止（无需 sudo，deploy 属 docker 组等效 root）
+# ============================================================
 services:
-  # 采用「服务器本地构建镜像 → 直接启动」模式。
-  # 原因：GHCR 到该腾讯云服务器网络极不稳定，docker pull 经常卡在 fs layer 导致超时。
-  # 改为本地 build 后，完全绕过 GHCR 拉取，利用服务器本地代码和 Dockerfile 构建镜像。
-  # SECRET_KEY / ALLOWED_HOSTS / DATABASE_URL 等变量由同目录 .env 文件注入（env_file）。
-  #
-  # 网络说明：使用 host 网络模式（network_mode: host），容器直接共享宿主机网络栈。
-  # 这样容器内 127.0.0.1:5432 即宿主 PostgreSQL、127.0.0.1:8000 即 Gunicorn，
-  # 彻底规避 Docker 网桥路由/防火墙导致的容器→宿主机连通问题（已生产验证）。
-  # 注意：host 模式下 ports 映射与 extra_hosts 均不生效，已移除。
-  web:
-    build: .
+  # ---------------------- Django Web 应用 ----------------------
+  django_web:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: my-blog:local
-    container_name: my-blog
-    # 共享宿主机网络，容器内 localhost 即宿主机服务
-    network_mode: "host"
+    container_name: my-blog-web
+    # 自定义网桥，nginx 容器通过容器名 my-blog-web 解析反代
+    networks:
+      - my_nginx_net
     env_file:
       - .env
     environment:
@@ -21,11 +27,14 @@ services:
       DEBUG: "False"
       SECRET_KEY: "${SECRET_KEY}"
       ALLOWED_HOSTS: "localhost,127.0.0.1,linkuphub.top,www.linkuphub.top"
-      # host 模式下直接用 127.0.0.1 访问宿主 PostgreSQL（覆盖 .env 同名变量）
-      DATABASE_URL: "postgresql://myblog_user:MyBlog_Passw0rd@127.0.0.1:5432/myblog"
+      # 注意：不设置 DATABASE_URL → Django 自动使用 SQLite（容器内 db.sqlite3）
     volumes:
-      - ./data/staticfiles:/app/staticfiles
-      - ./data/media:/app/media
+      # 静态/媒体：bind 挂载到宿主 data 目录（与 nginx 容器共享同一目录）
+      - /home/deploy/my-blog/data/staticfiles:/app/staticfiles
+      - /home/deploy/my-blog/data/media:/app/media
+      # SQLite 数据库：settings 中 NAME=BASE_DIR/db.sqlite3（容器内 /app/db.sqlite3）
+      - /home/deploy/my-blog/data/db.sqlite3:/app/db.sqlite3
+    # 不映射到宿主端口，仅通过网桥由 nginx 容器内部访问
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000')"]
@@ -33,3 +42,37 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  # ---------------------- Nginx 反向代理（独立容器） ----------------------
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    image: my-blog-nginx:local
+    container_name: my-blog-nginx
+    # 与 django_web 同网桥，才能用容器名 my-blog-web 反代
+    networks:
+      - my_nginx_net
+    # 共享静态/媒体目录（只读直出即可）
+    volumes:
+      - /home/deploy/my-blog/data/staticfiles:/app/staticfiles:ro
+      - /home/deploy/my-blog/data/media:/app/media:ro
+      # nginx 站点配置：bind 挂载，便于证书申请后动态修改并 reload（免重建镜像）
+      - /home/deploy/my-blog/data/nginx/myblog.conf:/etc/nginx/conf.d/myblog.conf:ro
+      # certbot webroot（验证文件写入处，nginx 直出 /.well-known/acme-challenge/）
+      - /home/deploy/my-blog/data/certbot/www:/var/www/certbot:ro
+      # certbot 证书存放目录（证书申请后供 443 server 读取）
+      - /home/deploy/my-blog/data/certbot/conf:/etc/letsencrypt:ro
+    # 映射 80/443 到宿主机（80 用于 ACME 验证 + HTTP->HTTPS 跳转，443 提供 HTTPS 服务）
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      django_web:
+        condition: service_healthy
+    restart: unless-stopped
+
+# ---------------------- 自定义网络 ----------------------
+networks:
+  my_nginx_net:
+    driver: bridge
